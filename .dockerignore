@@ -1,0 +1,11 @@
+.git
+.idea
+.omx
+.env
+.env.*
+node_modules
+frontend/.next
+frontend/node_modules
+backend/.gradle
+backend/.kotlin
+backend/build

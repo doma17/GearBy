@@ -1,0 +1,513 @@
+openapi: 3.1.1
+info:
+  title: GearBy API
+  version: 1.0.0
+  description: Contract foundation for GearBy. Product behavior is implemented in later delivery stages.
+servers:
+  - url: http://localhost:8080/api/v1
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Foundation readiness probe
+      responses:
+        '200':
+          $ref: '#/components/responses/ApiResponse'
+        '503': { $ref: '#/components/responses/ApiError' }
+  /categories:
+    get:
+      operationId: listCategories
+      summary: List fixed published activity categories
+      responses:
+        '200':
+          $ref: '#/components/responses/ApiResponse'
+        '500': { $ref: '#/components/responses/ApiError' }
+  /stores:
+    get:
+      operationId: listStores
+      summary: List published stores using shared map and list filters
+      parameters:
+        - $ref: '#/components/parameters/Category'
+        - $ref: '#/components/parameters/Query'
+        - $ref: '#/components/parameters/Bbox'
+        - $ref: '#/components/parameters/Near'
+        - $ref: '#/components/parameters/Sort'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/ApiResponse'
+        '400': { $ref: '#/components/responses/ApiError' }
+  /stores/{storeId}:
+    get:
+      operationId: getStore
+      summary: Get one published store
+      parameters: [{ $ref: '#/components/parameters/StoreId' }]
+      responses:
+        '200':
+          $ref: '#/components/responses/ApiResponse'
+        '404': { $ref: '#/components/responses/ApiError' }
+  /feedback:
+    post:
+      operationId: submitFeedback
+      summary: Submit anonymous correction, feedback, or new-store candidate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FeedbackInput' }
+      responses:
+        '202':
+          $ref: '#/components/responses/ApiResponse'
+        '400': { $ref: '#/components/responses/ApiError' }
+        '429': { $ref: '#/components/responses/ApiError' }
+  /admin/stores:
+    get:
+      operationId: listAdminStores
+      summary: List stores across review states
+      security: [{ adminOidc: [ADMIN] }]
+      responses:
+        '200':
+          $ref: '#/components/responses/ApiResponse'
+        '401': { $ref: '#/components/responses/ApiError' }
+        '403': { $ref: '#/components/responses/ApiError' }
+    post:
+      operationId: createAdminStore
+      summary: Create a draft store for review
+      security: [{ adminOidc: [ADMIN] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StoreInput' }
+      responses:
+        '201':
+          $ref: '#/components/responses/ApiResponse'
+        '400': { $ref: '#/components/responses/ApiError' }
+        '401': { $ref: '#/components/responses/ApiError' }
+        '403': { $ref: '#/components/responses/ApiError' }
+  /admin/stores/{storeId}:
+    patch:
+      operationId: updateAdminStore
+      summary: Update a draft or review store
+      security: [{ adminOidc: [ADMIN] }]
+      parameters: [{ $ref: '#/components/parameters/StoreId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StoreInput' }
+      responses:
+        '200':
+          $ref: '#/components/responses/ApiResponse'
+        '400': { $ref: '#/components/responses/ApiError' }
+        '401': { $ref: '#/components/responses/ApiError' }
+        '403': { $ref: '#/components/responses/ApiError' }
+        '404': { $ref: '#/components/responses/ApiError' }
+  /admin/stores/{storeId}/publish:
+    post:
+      operationId: publishAdminStore
+      summary: Publish a reviewed store
+      security: [{ adminOidc: [ADMIN] }]
+      parameters: [{ $ref: '#/components/parameters/StoreId' }]
+      responses:
+        '200':
+          $ref: '#/components/responses/ApiResponse'
+        '400': { $ref: '#/components/responses/ApiError' }
+        '401': { $ref: '#/components/responses/ApiError' }
+        '403': { $ref: '#/components/responses/ApiError' }
+        '404': { $ref: '#/components/responses/ApiError' }
+  /admin/stores/{storeId}/review:
+    post:
+      operationId: reviewAdminStore
+      summary: Submit a draft or rejected store for review
+      security: [{ adminOidc: [ADMIN] }]
+      parameters: [{ $ref: '#/components/parameters/StoreId' }]
+      responses:
+        '200':
+          $ref: '#/components/responses/ApiResponse'
+        '400': { $ref: '#/components/responses/ApiError' }
+        '401': { $ref: '#/components/responses/ApiError' }
+        '403': { $ref: '#/components/responses/ApiError' }
+        '404': { $ref: '#/components/responses/ApiError' }
+  /admin/stores/{storeId}/reject:
+    post:
+      operationId: rejectAdminStore
+      summary: Reject a reviewed store back to an editable state
+      security: [{ adminOidc: [ADMIN] }]
+      parameters: [{ $ref: '#/components/parameters/StoreId' }]
+      requestBody:
+        required: false
+        content: { application/json: { schema: { $ref: '#/components/schemas/StoreRejectionInput' } } }
+      responses:
+        '200':
+          $ref: '#/components/responses/ApiResponse'
+        '400': { $ref: '#/components/responses/ApiError' }
+        '401': { $ref: '#/components/responses/ApiError' }
+        '403': { $ref: '#/components/responses/ApiError' }
+        '404': { $ref: '#/components/responses/ApiError' }
+  /admin/correction-rules:
+    get:
+      operationId: listCorrectionRules
+      summary: List explicit correction rules
+      security: [{ adminOidc: [ADMIN] }]
+      responses:
+        '200':
+          $ref: '#/components/responses/ApiResponse'
+        '401': { $ref: '#/components/responses/ApiError' }
+        '403': { $ref: '#/components/responses/ApiError' }
+    post:
+      operationId: createCorrectionRule
+      summary: Create an explicit correction rule
+      security: [{ adminOidc: [ADMIN] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CorrectionRuleInput' }
+      responses:
+        '201':
+          $ref: '#/components/responses/ApiResponse'
+        '400': { $ref: '#/components/responses/ApiError' }
+        '401': { $ref: '#/components/responses/ApiError' }
+        '403': { $ref: '#/components/responses/ApiError' }
+  /admin/correction-rules/{ruleId}:
+    parameters:
+      - name: ruleId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      operationId: updateCorrectionRule
+      summary: Update an explicit correction rule
+      security: [{ adminOidc: [ADMIN] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CorrectionRuleInput' }
+      responses:
+        '200':
+          $ref: '#/components/responses/ApiResponse'
+        '400': { $ref: '#/components/responses/ApiError' }
+        '401': { $ref: '#/components/responses/ApiError' }
+        '403': { $ref: '#/components/responses/ApiError' }
+        '404': { $ref: '#/components/responses/ApiError' }
+    delete:
+      operationId: deleteCorrectionRule
+      summary: Delete an explicit correction rule
+      security: [{ adminOidc: [ADMIN] }]
+      responses:
+        '200':
+          $ref: '#/components/responses/ApiResponse'
+        '401': { $ref: '#/components/responses/ApiError' }
+        '403': { $ref: '#/components/responses/ApiError' }
+        '404': { $ref: '#/components/responses/ApiError' }
+  /admin/feedback:
+    get:
+      operationId: listAdminFeedback
+      summary: List feedback review queue
+      security: [{ adminOidc: [ADMIN] }]
+      responses:
+        '200':
+          $ref: '#/components/responses/ApiResponse'
+        '401': { $ref: '#/components/responses/ApiError' }
+        '403': { $ref: '#/components/responses/ApiError' }
+  /admin/feedback/{feedbackId}:
+    patch:
+      operationId: resolveAdminFeedback
+      summary: Resolve or reject feedback and record its notification state
+      security: [{ adminOidc: [ADMIN] }]
+      parameters:
+        - name: feedbackId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FeedbackResolutionInput' }
+      responses:
+        '200':
+          $ref: '#/components/responses/ApiResponse'
+        '400': { $ref: '#/components/responses/ApiError' }
+        '401': { $ref: '#/components/responses/ApiError' }
+        '403': { $ref: '#/components/responses/ApiError' }
+        '409': { $ref: '#/components/responses/ApiError' }
+  /admin/category-health:
+    get:
+      operationId: getCategoryHealth
+      summary: List category counts and open review flags
+      security: [{ adminOidc: [ADMIN] }]
+      responses:
+        '200':
+          $ref: '#/components/responses/ApiResponse'
+        '401': { $ref: '#/components/responses/ApiError' }
+        '403': { $ref: '#/components/responses/ApiError' }
+  /admin/category-review-flags:
+    get:
+      operationId: listCategoryReviewFlags
+      summary: List category review flags
+      security: [{ adminOidc: [ADMIN] }]
+      responses:
+        '200':
+          $ref: '#/components/responses/ApiResponse'
+        '401': { $ref: '#/components/responses/ApiError' }
+        '403': { $ref: '#/components/responses/ApiError' }
+    post:
+      operationId: createCategoryReviewFlag
+      summary: Create a manual category review flag
+      security: [{ adminOidc: [ADMIN] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ManualCategoryReviewFlagInput' } } }
+      responses:
+        '201':
+          $ref: '#/components/responses/ApiResponse'
+        '400': { $ref: '#/components/responses/ApiError' }
+        '401': { $ref: '#/components/responses/ApiError' }
+        '403': { $ref: '#/components/responses/ApiError' }
+  /admin/category-review-flags/{flagId}:
+    patch:
+      operationId: updateCategoryReviewFlag
+      summary: Assign or resolve a category review flag
+      security: [{ adminOidc: [ADMIN] }]
+      parameters:
+        - name: flagId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CategoryReviewFlagUpdateInput' } } }
+      responses:
+        '200':
+          $ref: '#/components/responses/ApiResponse'
+        '400': { $ref: '#/components/responses/ApiError' }
+        '401': { $ref: '#/components/responses/ApiError' }
+        '403': { $ref: '#/components/responses/ApiError' }
+        '404': { $ref: '#/components/responses/ApiError' }
+  /admin/dashboard:
+    get:
+      operationId: getAdminDashboard
+      summary: Get operational counts and category-health flags
+      security: [{ adminOidc: [ADMIN] }]
+      responses:
+        '200':
+          $ref: '#/components/responses/ApiResponse'
+        '401': { $ref: '#/components/responses/ApiError' }
+        '403': { $ref: '#/components/responses/ApiError' }
+components:
+  securitySchemes:
+    adminOidc:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://identity.example.com/authorize
+          tokenUrl: https://identity.example.com/token
+          scopes: { ADMIN: GearBy administrator access }
+  parameters:
+    StoreId: { name: storeId, in: path, required: true, schema: { type: string, format: uuid } }
+    Category: { name: category, in: query, schema: { $ref: '#/components/schemas/CategorySlug' } }
+    Query: { name: q, in: query, schema: { type: string, maxLength: 120 } }
+    Bbox: { name: bbox, in: query, schema: { type: string, example: '126.7,37.4,127.2,37.7' } }
+    Near: { name: near, in: query, schema: { type: string, example: '37.5665,126.9780' } }
+    Sort: { name: sort, in: query, schema: { type: string, enum: [name, distance], default: name } }
+    Cursor: { name: cursor, in: query, schema: { type: string } }
+    Limit: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+  responses:
+    ApiResponse:
+      description: Successful response envelope. The operation-specific value is in `data`.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiResponse' }
+    ApiError:
+      description: Failed response envelope. The HTTP status and `error.code` describe the failure.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiResponse' }
+  schemas:
+    ApiResponse:
+      type: object
+      required: [success, timestamp, data, error]
+      properties:
+        success: { type: boolean }
+        timestamp: { type: string, format: date-time }
+        data: {}
+        error:
+          oneOf:
+            - $ref: '#/components/schemas/ApiError'
+            - type: 'null'
+    ApiError:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string, enum: [INVALID_REQUEST, UNAUTHORIZED, FORBIDDEN, NOT_FOUND, CONFLICT, INTERNAL_ERROR] }
+        message: { type: string }
+    Health:
+      type: object
+      required: [status]
+      properties: { status: { type: string, enum: [UP] } }
+    CategorySlug: { type: string, enum: [HIKING, BACKPACKING, CAMPING, CLIMBING] }
+    Category:
+      type: object
+      required: [slug, displayName]
+      properties: { slug: { $ref: '#/components/schemas/CategorySlug' }, displayName: { type: string } }
+    Coordinates:
+      type: object
+      required: [latitude, longitude]
+      properties:
+        latitude: { type: number, minimum: -90, maximum: 90 }
+        longitude: { type: number, minimum: -180, maximum: 180 }
+    Store:
+      type: object
+      required: [id, name, address, coordinates, categories]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        address: { type: string }
+        coordinates: { $ref: '#/components/schemas/Coordinates' }
+        categories: { type: array, minItems: 1, items: { $ref: '#/components/schemas/CategorySlug' } }
+        phone: { type: string }
+        hours: { type: string }
+        description: { type: string }
+    StoreInput:
+      type: object
+      required: [name, address, coordinates, categories]
+      properties:
+        name: { type: string, minLength: 1 }
+        address: { type: string, minLength: 1 }
+        coordinates: { $ref: '#/components/schemas/Coordinates' }
+        categories: { type: array, minItems: 1, items: { $ref: '#/components/schemas/CategorySlug' } }
+        phone: { type: string }
+        hours: { type: string }
+        description: { type: string }
+    StoreRejectionInput:
+      type: object
+      properties:
+        reason: { type: string, minLength: 1, maxLength: 500 }
+    StorePage:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Store' } }
+        nextCursor: { type: [string, 'null'] }
+        search: { $ref: '#/components/schemas/SearchDisclosure' }
+    SearchDisclosure:
+      type: object
+      required: [originalQuery, appliedQuery]
+      properties:
+        originalQuery: { type: string }
+        appliedQuery: { type: string }
+        correction: { type: [string, 'null'] }
+    FeedbackInput:
+      type: object
+      required: [kind, content]
+      properties:
+        kind: { type: string, enum: [CORRECTION, GENERAL, NEW_STORE] }
+        storeId: { type: string, format: uuid }
+        content: { type: string, minLength: 1, maxLength: 2000 }
+        replyEmail: { type: string, format: email }
+        contactConsent: { type: boolean }
+        categoryRelated: { type: boolean, default: false }
+    FeedbackReceipt:
+      type: object
+      required: [id, status]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [ACCEPTED] }
+    FeedbackResolutionInput:
+      type: object
+      required: [resolutionStatus, resolutionSummary]
+      properties:
+        resolutionStatus: { type: string, enum: [RESOLVED, REJECTED] }
+        resolutionSummary: { type: string, minLength: 1, maxLength: 1000 }
+    AdminFeedback:
+      type: object
+      required: [id, kind, content, contactConsent, submittedAt, resolutionStatus, notificationStatus]
+      properties:
+        id: { type: string, format: uuid }
+        storeId: { type: [string, 'null'], format: uuid }
+        storeName: { type: [string, 'null'] }
+        kind: { type: string, enum: [CORRECTION, GENERAL, NEW_STORE] }
+        content: { type: string }
+        contactConsent: { type: boolean }
+        submittedAt: { type: string, format: date-time }
+        resolutionStatus: { type: string, enum: [PENDING, RESOLVED, REJECTED] }
+        resolutionSummary: { type: [string, 'null'] }
+        notificationStatus: { type: string, enum: [NOT_REQUESTED, QUEUED, SENT, FAILED] }
+    CorrectionRuleInput:
+      type: object
+      required: [source, targetType, target]
+      properties:
+        source: { type: string, minLength: 1 }
+        targetType: { type: string, enum: [CATEGORY, STORE] }
+        target: { type: string, minLength: 1 }
+        active: { type: boolean, default: true }
+    CorrectionRule:
+      type: object
+      required: [id, source, targetType, target, active]
+      properties:
+        id: { type: string, format: uuid }
+        source: { type: string }
+        targetType: { type: string, enum: [CATEGORY, STORE] }
+        target: { type: string }
+        active: { type: boolean }
+    AdminStoreGroups:
+      type: object
+      additionalProperties:
+        type: array
+        items: { $ref: '#/components/schemas/AdminStore' }
+    AdminStore:
+      allOf:
+        - $ref: '#/components/schemas/Store'
+        - type: object
+          required: [status]
+          properties:
+            status: { type: string, enum: [DRAFT, IN_REVIEW, PUBLISHED, REJECTED] }
+    CategoryHealth:
+      type: object
+      required: [category, publishedStoreCount, storesByLifecycle, openReviewFlagCount]
+      properties:
+        category: { $ref: '#/components/schemas/CategorySlug' }
+        publishedStoreCount: { type: integer }
+        storesByLifecycle: { type: object, additionalProperties: { type: integer } }
+        openReviewFlagCount: { type: integer }
+    CategoryReviewFlag:
+      type: object
+      required: [id, storeId, storeName, source, sourceFeedbackId, reason, state, assignee, resolution, createdAt, resolvedAt, resolvedBy]
+      properties:
+        id: { type: string, format: uuid }
+        storeId: { type: [string, 'null'], format: uuid }
+        storeName: { type: [string, 'null'] }
+        source: { type: string, enum: [FEEDBACK, REJECTION, VALIDATION, MANUAL] }
+        sourceFeedbackId: { type: [string, 'null'], format: uuid }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+        state: { type: string, enum: [OPEN, RESOLVED] }
+        assignee: { type: [string, 'null'] }
+        resolution: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+        resolvedAt: { type: [string, 'null'], format: date-time }
+        resolvedBy: { type: [string, 'null'] }
+    ManualCategoryReviewFlagInput:
+      type: object
+      required: [storeId, reason]
+      properties:
+        storeId: { type: string, format: uuid }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+    CategoryReviewFlagUpdateInput:
+      type: object
+      properties:
+        state: { type: string, enum: [OPEN, RESOLVED] }
+        assignee: { type: string, maxLength: 200 }
+        resolution: { type: string, maxLength: 1000 }
+    AdminDashboard:
+      type: object
+      required: [stores, feedback, activeCorrectionRules, categoryHealth, openCategoryReviewFlagCount]
+      properties:
+        stores: { type: object, additionalProperties: { type: integer } }
+        feedback: { type: object, additionalProperties: { type: integer } }
+        activeCorrectionRules: { type: integer }
+        categoryHealth: { type: array, items: { $ref: '#/components/schemas/CategoryHealth' } }
+        openCategoryReviewFlagCount: { type: integer }

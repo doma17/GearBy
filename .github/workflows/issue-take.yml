@@ -1,0 +1,44 @@
+name: Self-assign issue
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+
+concurrency:
+  group: issue-take-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  assign:
+    if: >-
+      github.event.issue.pull_request == null &&
+      github.event.comment.user.type != 'Bot'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/github-script@v8
+        with:
+          script: |
+            if (context.payload.comment.body.trim().toLowerCase() !== "take") return;
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const actor = context.payload.comment.user.login;
+            const { data: issue } = await github.rest.issues.get({ owner, repo, issue_number });
+
+            // The first valid take comment owns an open, unassigned issue.
+            if (issue.state !== "open" || issue.assignees.length > 0) return;
+
+            await github.rest.issues.addAssignees({ owner, repo, issue_number, assignees: [actor] });
+            const { data: updated } = await github.rest.issues.get({ owner, repo, issue_number });
+            if (updated.assignees.some(({ login }) => login === actor)) {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body: `Assigned to @${actor} via \`take\`.`,
+              });
+            }

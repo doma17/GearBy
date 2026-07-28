@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.example
+node_modules/
+frontend/.next/
+backend/.gradle/
+backend/build/
+
+# Local tools and editor metadata
+.idea/
+*.iml
+.omx/
+.playwright-cli/
+output/playwright/
+.DS_Store
