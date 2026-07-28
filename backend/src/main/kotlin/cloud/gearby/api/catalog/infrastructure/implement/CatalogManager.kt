@@ -20,6 +20,7 @@ import cloud.gearby.api.catalog.infrastructure.persistence.entity.FeedbackEntity
 import cloud.gearby.api.catalog.infrastructure.persistence.entity.StoreEntity
 import org.springframework.stereotype.Component
 import java.math.BigDecimal
+import java.time.Clock
 import java.time.Instant
 import java.util.UUID
 
@@ -27,6 +28,7 @@ import java.util.UUID
 class CatalogManager(
     private val reader: CatalogReader,
     private val appender: CatalogAppender,
+    private val clock: Clock = Clock.systemUTC(),
 ) {
     fun createStore(
         command: StoreUpsertCommand,
@@ -90,6 +92,7 @@ class CatalogManager(
         if (!canTransition(store.status, target)) return null
         val before = store.status
         store.status = target
+        if (target == StoreStatus.PUBLISHED) store.verifiedAt = clock.instant()
         store.touch(actor)
         appender.saveStore(store)
         appender.audit(target.name, id, actor, before.name, target.name)
@@ -308,7 +311,7 @@ class CatalogManager(
         target: StoreStatus,
     ) = when (target) {
         StoreStatus.IN_REVIEW -> source in setOf(StoreStatus.DRAFT, StoreStatus.REJECTED)
-        StoreStatus.PUBLISHED -> source == StoreStatus.IN_REVIEW
+        StoreStatus.PUBLISHED -> source in setOf(StoreStatus.IN_REVIEW, StoreStatus.PUBLISHED)
         StoreStatus.REJECTED -> source == StoreStatus.IN_REVIEW
         StoreStatus.DRAFT -> false
     }

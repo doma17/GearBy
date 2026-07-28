@@ -8,6 +8,8 @@ spring:
   flyway:
     enabled: true
 gearby:
+  catalog:
+    review-period: ${CATALOG_REVIEW_PERIOD:P180D}
   cors:
     # Comma-separated exact browser origins; never use wildcard origins with credentials.
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}

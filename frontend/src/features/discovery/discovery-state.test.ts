@@ -17,6 +17,36 @@ describe("discoveryViewReducer", () => {
       sort: "distance",
     });
   });
+
+  it("keeps draft search text separate until it is submitted", () => {
+    const typed = discoveryViewReducer(initialDiscoveryViewState, { type: "queryChanged", query: "  pack  " });
+    const submitted = discoveryViewReducer(typed, { type: "querySubmitted" });
+
+    expect(typed.query).toBe("");
+    expect(typed.queryDraft).toBe("  pack  ");
+    expect(submitted.query).toBe("pack");
+  });
+
+  it("opts out of correction for rollback and resets for a newly submitted query", () => {
+    const rolledBack = discoveryViewReducer(initialDiscoveryViewState, { type: "correctionRolledBack", query: "trail" });
+    const typed = discoveryViewReducer(rolledBack, { type: "queryChanged", query: "tent" });
+    const submitted = discoveryViewReducer(typed, { type: "querySubmitted" });
+
+    expect(storeSearchParams(rolledBack).get("applyCorrection")).toBe("false");
+    expect(typed.query).toBe("trail");
+    expect(submitted).toMatchObject({ query: "tent", applyCorrection: true });
+    expect(storeSearchParams(submitted).has("applyCorrection")).toBe(false);
+  });
+
+  it("serializes only committed map bounds", () => {
+    const located = { ...initialDiscoveryViewState, near: "37.5665,126.978", sort: "distance" as const };
+    const pending = discoveryViewReducer(located, { type: "mapBoundsChanged", bbox: "126.7,37.4,127.2,37.7" });
+    const committed = discoveryViewReducer(pending, { type: "mapBoundsCommitted" });
+
+    expect(storeSearchParams(pending).has("bbox")).toBe(false);
+    expect(storeSearchParams(committed).get("bbox")).toBe("126.7,37.4,127.2,37.7");
+    expect(committed).toMatchObject({ near: "37.5665,126.978", pendingBbox: committed.bbox, sort: "distance" });
+  });
 });
 
 describe("storeSearchParams", () => {

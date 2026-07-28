@@ -11,6 +11,10 @@ import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
+import java.nio.file.Path
+import kotlin.io.path.readText
+import kotlin.test.assertContains
+import kotlin.test.assertFalse
 
 @Tag("contract")
 @SpringBootTest
@@ -65,5 +69,21 @@ class ApiResponseContractTest
                 jsonPath("$.success") { value(true) }
                 jsonPath("$.data") { exists() }
             }
+        }
+
+        @Test
+        fun `OpenAPI separates public freshness from admin lifecycle semantics`() {
+            val openApi = Path.of("..", "contracts", "openapi.yaml").readText()
+            val applyCorrection = openApi.substringAfter("    ApplyCorrection:\n").substringBefore("    Bbox:")
+            val publicStore = openApi.substringAfter("    Store:\n").substringBefore("    StoreInformationStatus:")
+            val adminStore = openApi.substringAfter("    AdminStore:\n").substringBefore("    CategoryHealth:")
+
+            assertContains(applyCorrection, "default: true")
+            assertContains(publicStore, "required: [id, name, address, coordinates, categories, verifiedAt, informationStatus]")
+            assertFalse(adminStore.contains("allOf:"))
+            assertContains(adminStore, "required: [id, name, address, coordinates, categories, status]")
+            assertContains(adminStore, "verifiedAt: { type: string, format: date-time, nullable: true }")
+            assertContains(adminStore, "informationStatus:")
+            assertContains(adminStore, "nullable: true")
         }
     }

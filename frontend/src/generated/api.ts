@@ -630,9 +630,22 @@ export interface components {
         AdminStoreGroups: {
             [key: string]: components["schemas"]["AdminStore"][];
         };
-        AdminStore: components["schemas"]["Store"] & {
+        AdminStore: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            address: string;
+            coordinates: components["schemas"]["Coordinates"];
+            categories: components["schemas"]["CategorySlug"][];
+            phone?: string;
+            hours?: string;
+            description?: string;
             /** @enum {string} */
             status: "DRAFT" | "IN_REVIEW" | "PUBLISHED" | "REJECTED";
+            /** Format: date-time */
+            verifiedAt?: string | null;
+            /** @enum {string|null} */
+            informationStatus?: "VERIFIED" | "REVIEW_DUE" | null;
         };
         CategoryHealth: {
             category: components["schemas"]["CategorySlug"];

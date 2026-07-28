@@ -25,8 +25,11 @@ import cloud.gearby.api.catalog.domain.FeedbackResolutionStatus
 import cloud.gearby.api.catalog.domain.StoreStatus
 import cloud.gearby.api.catalog.infrastructure.implement.CatalogManager
 import cloud.gearby.api.catalog.infrastructure.implement.CatalogReader
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Clock
+import java.time.Duration
 import java.util.Base64
 import java.util.UUID
 import kotlin.math.asin
@@ -39,14 +42,16 @@ import kotlin.math.sqrt
 class CatalogService(
     private val reader: CatalogReader,
     private val manager: CatalogManager,
+    private val clock: Clock = Clock.systemUTC(),
+    @Value("\${gearby.catalog.review-period:P180D}") private val reviewPeriod: Duration = Duration.ofDays(180),
 ) {
     fun categories(): List<Category> = reader.categories()
 
-    fun published(): List<StoreResult> = reader.storesByStatus(StoreStatus.PUBLISHED).map { it.toResult() }
+    fun published(): List<StoreResult> = reader.storesByStatus(StoreStatus.PUBLISHED).map { it.toResult(clock, reviewPeriod) }
 
-    fun find(id: UUID): StoreResult? = reader.findStore(id)?.toResult()
+    fun find(id: UUID): StoreResult? = reader.findStore(id)?.toResult(clock, reviewPeriod)
 
-    fun findByStatus(status: StoreStatus): List<StoreResult> = reader.storesByStatus(status).map { it.toResult() }
+    fun findByStatus(status: StoreStatus): List<StoreResult> = reader.storesByStatus(status).map { it.toResult(clock, reviewPeriod) }
 
     fun search(query: StoreQuery): StorePageResult {
         require(query.sort in setOf("name", "distance")) { "invalid sort" }
@@ -71,7 +76,7 @@ class CatalogService(
             // Preserve an exact user match before applying an operator-maintained correction rule.
             if (direct.isNotEmpty()) {
                 stores = direct
-            } else {
+            } else if (query.applyCorrection) {
                 reader.correctionFor(normalize(original))?.let { rule ->
                     applied = rule.target
                     correction = "$original → ${rule.target}"
@@ -81,6 +86,8 @@ class CatalogService(
                             CorrectionTargetType.STORE -> stores.filter { it.matches(rule.target) }
                         }
                 } ?: run { stores = emptyList() }
+            } else {
+                stores = emptyList()
             }
         }
         stores =
@@ -102,21 +109,21 @@ class CatalogService(
     @Transactional fun create(
         command: StoreUpsertCommand,
         actor: String,
-    ): StoreResult = manager.createStore(command, actor).toResult()
+    ): StoreResult = manager.createStore(command, actor).toResult(clock, reviewPeriod)
 
     @Transactional(noRollbackFor = [IllegalArgumentException::class])
     fun update(
         id: UUID,
         command: StoreUpsertCommand,
         actor: String,
-    ): StoreResult? = manager.updateStore(id, command, actor)?.toResult()
+    ): StoreResult? = manager.updateStore(id, command, actor)?.toResult(clock, reviewPeriod)
 
     @Transactional fun transition(
         id: UUID,
         target: StoreStatus,
         actor: String,
         reason: String? = null,
-    ): StoreResult? = manager.transitionStore(id, target, actor, reason)?.toResult()
+    ): StoreResult? = manager.transitionStore(id, target, actor, reason)?.toResult(clock, reviewPeriod)
 
     @Transactional fun submitFeedback(command: FeedbackSubmitCommand): FeedbackReceiptResult =
         FeedbackReceiptResult(
@@ -224,7 +231,7 @@ class CatalogService(
             name,
             address,
             description.orEmpty(),
-            *categories.map { it.name }.toTypedArray(),
+            *categories.flatMap { listOf(it.name, it.displayName) }.toTypedArray(),
         ).any { normalize(it).contains(normalized) }
     }
 

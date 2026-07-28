@@ -13,6 +13,7 @@ import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.Table
 import java.math.BigDecimal
+import java.time.Instant
 import java.util.UUID
 
 @Entity
@@ -27,6 +28,7 @@ class StoreEntity(
     var hours: String? = null,
     var description: String? = null,
     @Enumerated(EnumType.STRING) var status: StoreStatus = StoreStatus.DRAFT,
+    @Column(name = "verified_at") var verifiedAt: Instant? = null,
 ) : AuditableEntity() {
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "store_categories", joinColumns = [JoinColumn(name = "store_id")])

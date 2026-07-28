@@ -43,6 +43,7 @@ class CatalogController(
     fun stores(
         @RequestParam(required = false) category: Set<Category>?,
         @RequestParam(required = false, name = "q") query: String?,
+        @RequestParam(defaultValue = "true") applyCorrection: Boolean,
         @RequestParam(required = false) bbox: String?,
         @RequestParam(required = false) near: String?,
         @RequestParam(defaultValue = "name") sort: String,
@@ -50,7 +51,9 @@ class CatalogController(
         @RequestParam(defaultValue = "20") limit: Int,
     ): ApiResponse<StorePageResponse> =
         ApiResponse.success(
-            catalog.search(StoreQuery(category.orEmpty(), query, bbox?.toBbox(), near?.toCoordinates(), sort, cursor, limit)).toResponse(),
+            catalog
+                .search(StoreQuery(category.orEmpty(), query, applyCorrection, bbox?.toBbox(), near?.toCoordinates(), sort, cursor, limit))
+                .toResponse(),
         )
 
     @GetMapping("/stores/{storeId}")

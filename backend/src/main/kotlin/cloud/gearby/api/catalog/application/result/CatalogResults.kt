@@ -8,6 +8,7 @@ import cloud.gearby.api.catalog.domain.CorrectionTargetType
 import cloud.gearby.api.catalog.domain.FeedbackKind
 import cloud.gearby.api.catalog.domain.FeedbackResolutionStatus
 import cloud.gearby.api.catalog.domain.NotificationStatus
+import cloud.gearby.api.catalog.domain.StoreInformationStatus
 import cloud.gearby.api.catalog.domain.StoreStatus
 import java.time.Instant
 import java.util.UUID
@@ -97,4 +98,6 @@ data class StoreResult(
     val hours: String?,
     val description: String?,
     val status: StoreStatus? = null,
+    val verifiedAt: Instant? = null,
+    val informationStatus: StoreInformationStatus? = null,
 )

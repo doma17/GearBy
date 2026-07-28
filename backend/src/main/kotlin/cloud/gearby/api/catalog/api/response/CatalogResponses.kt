@@ -1,6 +1,8 @@
 package cloud.gearby.api.catalog.api.response
 
+import cloud.gearby.api.catalog.domain.StoreInformationStatus
 import java.math.BigDecimal
+import java.time.Instant
 import java.util.UUID
 
 data class CategoryResponse(
@@ -28,6 +30,8 @@ data class StoreResponse(
     val phone: String?,
     val hours: String?,
     val description: String?,
+    val verifiedAt: Instant,
+    val informationStatus: StoreInformationStatus,
 )
 
 data class StorePageResponse(
