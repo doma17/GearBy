@@ -81,7 +81,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Submit anonymous correction, feedback, or new-store candidate */
+        /**
+         * Submit anonymous correction, feedback, or new-store candidate
+         * @description Authentication is not required. A reply email is accepted only with contact consent.
+         */
         post: operations["submitFeedback"];
         delete?: never;
         options?: never;
@@ -534,7 +537,12 @@ export interface components {
             phone?: string;
             hours?: string;
             description?: string;
+            /** Format: date-time */
+            verifiedAt: string;
+            informationStatus: components["schemas"]["StoreInformationStatus"];
         };
+        /** @enum {string} */
+        StoreInformationStatus: "VERIFIED" | "REVIEW_DUE";
         StoreInput: {
             name: string;
             address: string;
@@ -563,8 +571,12 @@ export interface components {
             /** Format: uuid */
             storeId?: string;
             content: string;
-            /** Format: email */
+            /**
+             * Format: email
+             * @description Optional reply address; requires contactConsent=true.
+             */
             replyEmail?: string;
+            /** @description Must be true when replyEmail is provided. */
             contactConsent?: boolean;
             /** @default false */
             categoryRelated: boolean;
@@ -742,9 +754,11 @@ export interface components {
     parameters: {
         StoreId: string;
         RecommendationSessionId: string;
-        /** @description Repeat the parameter to select multiple categories. */
+        /** @description Repeat the parameter to select multiple categories. Stores matching at least one selected category are returned. */
         Category: components["schemas"]["CategorySlug"][];
         Query: string;
+        /** @description Set to false when the user chooses to view results for the original query. */
+        ApplyCorrection: boolean;
         Bbox: string;
         Near: string;
         Sort: "name" | "distance";
@@ -786,9 +800,11 @@ export interface operations {
     listStores: {
         parameters: {
             query?: {
-                /** @description Repeat the parameter to select multiple categories. */
+                /** @description Repeat the parameter to select multiple categories. Stores matching at least one selected category are returned. */
                 category?: components["parameters"]["Category"];
                 q?: components["parameters"]["Query"];
+                /** @description Set to false when the user chooses to view results for the original query. */
+                applyCorrection?: components["parameters"]["ApplyCorrection"];
                 bbox?: components["parameters"]["Bbox"];
                 near?: components["parameters"]["Near"];
                 sort?: components["parameters"]["Sort"];

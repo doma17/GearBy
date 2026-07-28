@@ -29,6 +29,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Category'
         - $ref: '#/components/parameters/Query'
+        - $ref: '#/components/parameters/ApplyCorrection'
         - $ref: '#/components/parameters/Bbox'
         - $ref: '#/components/parameters/Near'
         - $ref: '#/components/parameters/Sort'
@@ -51,6 +52,7 @@ paths:
     post:
       operationId: submitFeedback
       summary: Submit anonymous correction, feedback, or new-store candidate
+      description: Authentication is not required. A reply email is accepted only with contact consent.
       requestBody:
         required: true
         content:
@@ -360,6 +362,7 @@ components:
   securitySchemes:
     adminOidc:
       type: oauth2
+      description: Invite-only administrator authentication; public administrator signup is not provided.
       flows:
         authorizationCode:
           authorizationUrl: https://identity.example.com/authorize
@@ -371,7 +374,7 @@ components:
     Category:
       name: category
       in: query
-      description: Repeat the parameter to select multiple categories.
+      description: Repeat the parameter to select multiple categories. Stores matching at least one selected category are returned.
       style: form
       explode: true
       schema:
@@ -379,6 +382,11 @@ components:
         uniqueItems: true
         items: { $ref: '#/components/schemas/CategorySlug' }
     Query: { name: q, in: query, schema: { type: string, maxLength: 120 } }
+    ApplyCorrection:
+      name: applyCorrection
+      in: query
+      description: Set to false when the user chooses to view results for the original query.
+      schema: { type: boolean, default: true }
     Bbox: { name: bbox, in: query, schema: { type: string, example: '126.7,37.4,127.2,37.7' } }
     Near: { name: near, in: query, schema: { type: string, example: '37.5665,126.9780' } }
     Sort: { name: sort, in: query, schema: { type: string, enum: [name, distance], default: name } }
@@ -562,7 +570,7 @@ components:
         longitude: { type: number, minimum: -180, maximum: 180 }
     Store:
       type: object
-      required: [id, name, address, coordinates, categories]
+      required: [id, name, address, coordinates, categories, verifiedAt, informationStatus]
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
@@ -572,6 +580,9 @@ components:
         phone: { type: string }
         hours: { type: string }
         description: { type: string }
+        verifiedAt: { type: string, format: date-time }
+        informationStatus: { $ref: '#/components/schemas/StoreInformationStatus' }
+    StoreInformationStatus: { type: string, enum: [VERIFIED, REVIEW_DUE] }
     StoreInput:
       type: object
       required: [name, address, coordinates, categories]
@@ -608,8 +619,8 @@ components:
         kind: { type: string, enum: [CORRECTION, GENERAL, NEW_STORE] }
         storeId: { type: string, format: uuid }
         content: { type: string, minLength: 1, maxLength: 2000 }
-        replyEmail: { type: string, format: email }
-        contactConsent: { type: boolean }
+        replyEmail: { type: string, format: email, description: Optional reply address; requires contactConsent=true. }
+        contactConsent: { type: boolean, description: Must be true when replyEmail is provided. }
         categoryRelated: { type: boolean, default: false }
     FeedbackReceipt:
       type: object
