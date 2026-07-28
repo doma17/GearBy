@@ -1,28 +1,28 @@
 ---
-name: Feature request
-about: Describe the user problem and the proposed change.
-title: "[feature] "
+name: 기능 제안
+about: 사용자의 문제와 제안하는 변경 사항을 설명합니다.
+title: "[기능] "
 ---
 
-## Problem to solve
+## 해결할 문제
 
-<!-- Describe who has the problem and what it is. -->
+<!-- 누가 어떤 문제를 겪고 있는지 작성해 주세요. -->
 
-## Proposal
+## 제안하는 해결책
 
-<!-- Describe the simplest solution that would address it. -->
+<!-- 문제를 해결할 수 있는 가장 단순한 방법을 작성해 주세요. -->
 
-## Acceptance criteria
+## 완료 조건
 
-<!-- List verifiable outcomes. -->
+<!-- 검증 가능한 결과를 목록으로 작성해 주세요. -->
 
 - [ ]
 
-## Alternatives considered
+## 검토한 대안
 
-<!-- Write `None` if there are no alternatives. -->
+<!-- 검토한 대안이 없다면 `없음`이라고 작성해 주세요. -->
 
-## AI use
+## AI 사용 여부
 
-- [ ] I did not use AI.
-- [ ] I used AI and reviewed and edited its output. Tool and scope:
+- [ ] AI를 사용하지 않았습니다.
+- [ ] AI를 사용했으며 결과를 직접 검토하고 수정했습니다. 사용 도구와 범위:

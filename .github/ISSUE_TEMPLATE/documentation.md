@@ -1,22 +1,22 @@
 ---
-name: Documentation improvement
-about: Report a documentation error, omission, or improvement.
-title: "[docs] "
+name: 문서 개선
+about: 문서의 오류, 누락 또는 개선 사항을 제보합니다.
+title: "[문서] "
 ---
 
-## Documentation target
+## 대상 문서
 
-<!-- File path or link. -->
+<!-- 파일 경로나 링크를 작성해 주세요. -->
 
-## Proposed improvement
+## 개선 내용
 
-<!-- Describe the error, omission, or reason for improvement and your proposal. -->
+<!-- 오류나 누락된 내용, 개선이 필요한 이유와 제안을 작성해 주세요. -->
 
-## Verification
+## 확인 근거
 
-<!-- State the source or evidence used to verify the change. -->
+<!-- 변경 사항을 확인할 수 있는 출처나 근거를 작성해 주세요. -->
 
-## AI use
+## AI 사용 여부
 
-- [ ] I did not use AI.
-- [ ] I used AI and reviewed and edited its output. Tool and scope:
+- [ ] AI를 사용하지 않았습니다.
+- [ ] AI를 사용했으며 결과를 직접 검토하고 수정했습니다. 사용 도구와 범위:
