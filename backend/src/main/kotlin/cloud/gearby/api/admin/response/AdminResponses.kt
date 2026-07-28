@@ -44,7 +44,12 @@ data class AdminStoreResponse(
     val status: String,
 )
 
-data class CategoryHealthResponse(val category: Category, val publishedStoreCount: Int, val storesByLifecycle: Map<String, Int>, val openReviewFlagCount: Int)
+data class CategoryHealthResponse(
+    val category: Category,
+    val publishedStoreCount: Int,
+    val storesByLifecycle: Map<String, Int>,
+    val openReviewFlagCount: Int,
+)
 
 data class CategoryReviewFlagResponse(
     val id: UUID,
@@ -61,4 +66,10 @@ data class CategoryReviewFlagResponse(
     val resolvedBy: String?,
 )
 
-data class CorrectionRuleResponse(val id: UUID, val source: String, val targetType: CorrectionTargetType, val target: String, val active: Boolean)
+data class CorrectionRuleResponse(
+    val id: UUID,
+    val source: String,
+    val targetType: CorrectionTargetType,
+    val target: String,
+    val active: Boolean,
+)

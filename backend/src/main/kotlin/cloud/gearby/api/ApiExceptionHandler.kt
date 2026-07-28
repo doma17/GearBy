@@ -24,18 +24,24 @@ class ApiExceptionHandler {
     fun unexpected(error: Exception): ResponseEntity<ApiResponse<Nothing>> =
         failure(HttpStatus.INTERNAL_SERVER_ERROR, ApiErrorCode.INTERNAL_ERROR, "internal server error")
 
-    private fun failure(status: HttpStatus, code: ApiErrorCode, message: String): ResponseEntity<ApiResponse<Nothing>> =
-        ResponseEntity.status(status).body(ApiResponse.failure(code, message))
+    private fun failure(
+        status: HttpStatus,
+        code: ApiErrorCode,
+        message: String,
+    ): ResponseEntity<ApiResponse<Nothing>> = ResponseEntity.status(status).body(ApiResponse.failure(code, message))
 
-    private fun failure(status: Int, message: String): ResponseEntity<ApiResponse<Nothing>> =
-        failure(HttpStatus.valueOf(status), status.toErrorCode(), message)
+    private fun failure(
+        status: Int,
+        message: String,
+    ): ResponseEntity<ApiResponse<Nothing>> = failure(HttpStatus.valueOf(status), status.toErrorCode(), message)
 
-    private fun Int.toErrorCode(): ApiErrorCode = when (this) {
-        400 -> ApiErrorCode.INVALID_REQUEST
-        401 -> ApiErrorCode.UNAUTHORIZED
-        403 -> ApiErrorCode.FORBIDDEN
-        404 -> ApiErrorCode.NOT_FOUND
-        409 -> ApiErrorCode.CONFLICT
-        else -> ApiErrorCode.INTERNAL_ERROR
-    }
+    private fun Int.toErrorCode(): ApiErrorCode =
+        when (this) {
+            400 -> ApiErrorCode.INVALID_REQUEST
+            401 -> ApiErrorCode.UNAUTHORIZED
+            403 -> ApiErrorCode.FORBIDDEN
+            404 -> ApiErrorCode.NOT_FOUND
+            409 -> ApiErrorCode.CONFLICT
+            else -> ApiErrorCode.INTERNAL_ERROR
+        }
 }

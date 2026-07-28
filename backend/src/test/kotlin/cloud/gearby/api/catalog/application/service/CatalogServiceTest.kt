@@ -8,14 +8,14 @@ import cloud.gearby.api.catalog.infrastructure.implement.CatalogManager
 import cloud.gearby.api.catalog.infrastructure.implement.CatalogReader
 import cloud.gearby.api.catalog.infrastructure.persistence.entity.CorrectionRuleEntity
 import cloud.gearby.api.catalog.infrastructure.persistence.entity.StoreEntity
-import java.math.BigDecimal
-import java.util.UUID
-import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.`when`
+import java.math.BigDecimal
+import java.util.UUID
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 @Tag("unit")
 class CatalogServiceTest {
@@ -47,7 +47,10 @@ class CatalogServiceTest {
         }
     }
 
-    private fun store(name: String, categories: Set<Category>) = StoreEntity(
+    private fun store(
+        name: String,
+        categories: Set<Category>,
+    ) = StoreEntity(
         id = UUID.randomUUID(),
         name = name,
         address = "Seoul",

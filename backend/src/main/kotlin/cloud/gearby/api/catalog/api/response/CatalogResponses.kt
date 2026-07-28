@@ -3,11 +3,21 @@ package cloud.gearby.api.catalog.api.response
 import java.math.BigDecimal
 import java.util.UUID
 
-data class CategoryResponse(val slug: String, val displayName: String)
+data class CategoryResponse(
+    val slug: String,
+    val displayName: String,
+)
 
-data class CoordinatesResponse(val latitude: BigDecimal, val longitude: BigDecimal)
+data class CoordinatesResponse(
+    val latitude: BigDecimal,
+    val longitude: BigDecimal,
+)
 
-data class SearchDisclosureResponse(val originalQuery: String, val appliedQuery: String, val correction: String?)
+data class SearchDisclosureResponse(
+    val originalQuery: String,
+    val appliedQuery: String,
+    val correction: String?,
+)
 
 data class StoreResponse(
     val id: UUID,

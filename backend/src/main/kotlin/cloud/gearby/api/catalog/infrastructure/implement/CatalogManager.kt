@@ -18,28 +18,44 @@ import cloud.gearby.api.catalog.infrastructure.persistence.entity.CategoryReview
 import cloud.gearby.api.catalog.infrastructure.persistence.entity.CorrectionRuleEntity
 import cloud.gearby.api.catalog.infrastructure.persistence.entity.FeedbackEntity
 import cloud.gearby.api.catalog.infrastructure.persistence.entity.StoreEntity
+import org.springframework.stereotype.Component
 import java.math.BigDecimal
 import java.time.Instant
 import java.util.UUID
-import org.springframework.stereotype.Component
 
 @Component
-class CatalogManager(private val reader: CatalogReader, private val appender: CatalogAppender) {
-    fun createStore(command: StoreUpsertCommand, actor: String): StoreEntity {
+class CatalogManager(
+    private val reader: CatalogReader,
+    private val appender: CatalogAppender,
+) {
+    fun createStore(
+        command: StoreUpsertCommand,
+        actor: String,
+    ): StoreEntity {
         validate(command)
-        val store = StoreEntity(
-            name = command.name.trim(), address = command.address.trim(), latitude = command.coordinates.latitude,
-            longitude = command.coordinates.longitude, phone = command.phone.clean(), hours = command.hours.clean(), description = command.description.clean(),
-        ).apply {
-            categories.addAll(command.categories)
-            createdBy(actor)
-        }
+        val store =
+            StoreEntity(
+                name = command.name.trim(),
+                address = command.address.trim(),
+                latitude = command.coordinates.latitude,
+                longitude = command.coordinates.longitude,
+                phone = command.phone.clean(),
+                hours = command.hours.clean(),
+                description = command.description.clean(),
+            ).apply {
+                categories.addAll(command.categories)
+                createdBy(actor)
+            }
         appender.saveStore(store)
         appender.audit("CREATE_DRAFT", store.id, actor, null, "DRAFT")
         return requireNotNull(reader.findStore(store.id))
     }
 
-    fun updateStore(id: UUID, command: StoreUpsertCommand, actor: String): StoreEntity? {
+    fun updateStore(
+        id: UUID,
+        command: StoreUpsertCommand,
+        actor: String,
+    ): StoreEntity? {
         val store = reader.findStore(id) ?: return null
         if (store.status !in setOf(StoreStatus.DRAFT, StoreStatus.IN_REVIEW, StoreStatus.REJECTED)) return null
         if (store.status == StoreStatus.IN_REVIEW && command.categories.isEmpty()) {
@@ -64,7 +80,12 @@ class CatalogManager(private val reader: CatalogReader, private val appender: Ca
         return reader.findStore(id)
     }
 
-    fun transitionStore(id: UUID, target: StoreStatus, actor: String, reason: String? = null): StoreEntity? {
+    fun transitionStore(
+        id: UUID,
+        target: StoreStatus,
+        actor: String,
+        reason: String? = null,
+    ): StoreEntity? {
         val store = reader.findStore(id) ?: return null
         if (!canTransition(store.status, target)) return null
         val before = store.status
@@ -72,7 +93,11 @@ class CatalogManager(private val reader: CatalogReader, private val appender: Ca
         store.touch(actor)
         appender.saveStore(store)
         appender.audit(target.name, id, actor, before.name, target.name)
-        if (target == StoreStatus.REJECTED && reason.isCategoryReason()) createCategoryReviewFlag(id, CategoryReviewFlagSource.REJECTION, reason!!.trim(), actor)
+        if (target == StoreStatus.REJECTED &&
+            reason.isCategoryReason()
+        ) {
+            createCategoryReviewFlag(id, CategoryReviewFlagSource.REJECTION, reason!!.trim(), actor)
+        }
         return reader.findStore(id)
     }
 
@@ -82,19 +107,45 @@ class CatalogManager(private val reader: CatalogReader, private val appender: Ca
         require((email == null) == !command.contactConsent) { "replyEmail and contactConsent must be supplied together" }
         require(email == null || EMAIL.matches(email)) { "invalid replyEmail" }
         command.storeId?.let { require(reader.findStore(it)?.status == StoreStatus.PUBLISHED) { "store must be published" } }
-        val item = FeedbackEntity(storeId = command.storeId, kind = command.kind, content = command.content.trim(), replyEmail = email, contactConsent = command.contactConsent).apply { createdBy("system") }
+        val item =
+            FeedbackEntity(
+                storeId = command.storeId,
+                kind = command.kind,
+                content = command.content.trim(),
+                replyEmail = email,
+                contactConsent = command.contactConsent,
+            ).apply {
+                createdBy("system")
+            }
         appender.saveFeedback(item)
-        if (command.categoryRelated && command.storeId != null) createCategoryReviewFlag(command.storeId, CategoryReviewFlagSource.FEEDBACK, "Category-related feedback", "system", item.id)
+        if (command.categoryRelated &&
+            command.storeId != null
+        ) {
+            createCategoryReviewFlag(command.storeId, CategoryReviewFlagSource.FEEDBACK, "Category-related feedback", "system", item.id)
+        }
         return item
     }
 
-    fun resolveFeedback(id: UUID, command: FeedbackResolveCommand, actor: String): FeedbackEntity? {
-        require(command.resolutionStatus in setOf(FeedbackResolutionStatus.RESOLVED, FeedbackResolutionStatus.REJECTED)) { "resolution status must be RESOLVED or REJECTED" }
+    fun resolveFeedback(
+        id: UUID,
+        command: FeedbackResolveCommand,
+        actor: String,
+    ): FeedbackEntity? {
+        require(command.resolutionStatus in setOf(FeedbackResolutionStatus.RESOLVED, FeedbackResolutionStatus.REJECTED)) {
+            "resolution status must be RESOLVED or REJECTED"
+        }
         val summary = command.resolutionSummary.trim()
         require(summary.isNotEmpty() && summary.length <= 1000) { "resolution summary is required and must be at most 1000 characters" }
         val item = reader.feedback(id) ?: return null
         if (item.resolutionStatus != FeedbackResolutionStatus.PENDING) return null
-        val notification = if (item.contactConsent && item.replyEmail != null) NotificationStatus.QUEUED else NotificationStatus.NOT_REQUESTED
+        val notification =
+            if (item.contactConsent &&
+                item.replyEmail != null
+            ) {
+                NotificationStatus.QUEUED
+            } else {
+                NotificationStatus.NOT_REQUESTED
+            }
         item.resolutionStatus = command.resolutionStatus
         item.resolutionSummary = summary
         item.notificationStatus = notification
@@ -104,18 +155,41 @@ class CatalogManager(private val reader: CatalogReader, private val appender: Ca
         appender.saveFeedback(item)
         // Notification attempts are persisted only for contacts that explicitly opted in.
         if (notification == NotificationStatus.QUEUED) appender.appendNotificationAttempt(id, item.replyEmail!!, actor)
-        appender.audit("${command.resolutionStatus}_FEEDBACK", id, actor, FeedbackResolutionStatus.PENDING.name, command.resolutionStatus.name, "FEEDBACK")
+        appender.audit(
+            "${command.resolutionStatus}_FEEDBACK",
+            id,
+            actor,
+            FeedbackResolutionStatus.PENDING.name,
+            command.resolutionStatus.name,
+            "FEEDBACK",
+        )
         return reader.feedback(id)
     }
 
-    fun createCorrectionRule(command: CorrectionRuleCommand, actor: String = "system"): CorrectionRuleEntity {
+    fun createCorrectionRule(
+        command: CorrectionRuleCommand,
+        actor: String = "system",
+    ): CorrectionRuleEntity {
         val (source, target) = correctionRuleValues(command)
         require(reader.correctionRules().none { it.source == source }) { "correction rule already exists" }
-        return appender.saveRule(CorrectionRuleEntity(source = source, targetType = command.targetType, target = target, active = command.active).apply { createdBy(actor) })
-            .also { appender.audit("CREATE_CORRECTION_RULE", it.id, actor, null, it.toResult().toString(), "CORRECTION_RULE") }
+        return appender
+            .saveRule(
+                CorrectionRuleEntity(
+                    source = source,
+                    targetType = command.targetType,
+                    target = target,
+                    active = command.active,
+                ).apply {
+                    createdBy(actor)
+                },
+            ).also { appender.audit("CREATE_CORRECTION_RULE", it.id, actor, null, it.toResult().toString(), "CORRECTION_RULE") }
     }
 
-    fun updateCorrectionRule(id: UUID, command: CorrectionRuleCommand, actor: String): CorrectionRuleEntity? {
+    fun updateCorrectionRule(
+        id: UUID,
+        command: CorrectionRuleCommand,
+        actor: String,
+    ): CorrectionRuleEntity? {
         val rule = reader.correctionRules().firstOrNull { it.id == id } ?: return null
         val before = rule.toResult().toString()
         val (source, target) = correctionRuleValues(command)
@@ -130,20 +204,30 @@ class CatalogManager(private val reader: CatalogReader, private val appender: Ca
         return rule
     }
 
-    fun deleteCorrectionRule(id: UUID, actor: String): Boolean {
+    fun deleteCorrectionRule(
+        id: UUID,
+        actor: String,
+    ): Boolean {
         val rule = reader.correctionRules().firstOrNull { it.id == id } ?: return false
         appender.deleteRule(rule)
         appender.audit("DELETE_CORRECTION_RULE", id, actor, rule.toResult().toString(), null, "CORRECTION_RULE")
         return true
     }
 
-    fun createManualCategoryReviewFlag(command: ManualCategoryReviewFlagCommand, actor: String): CategoryReviewFlagEntity {
+    fun createManualCategoryReviewFlag(
+        command: ManualCategoryReviewFlagCommand,
+        actor: String,
+    ): CategoryReviewFlagEntity {
         val storeId = requireNotNull(command.storeId) { "storeId is required" }
         require(reader.findStore(storeId) != null) { "store not found" }
         return createCategoryReviewFlag(storeId, CategoryReviewFlagSource.MANUAL, command.reason, actor)
     }
 
-    fun updateCategoryReviewFlag(id: UUID, command: CategoryReviewFlagUpdateCommand, actor: String): CategoryReviewFlagEntity? {
+    fun updateCategoryReviewFlag(
+        id: UUID,
+        command: CategoryReviewFlagUpdateCommand,
+        actor: String,
+    ): CategoryReviewFlagEntity? {
         val flag = reader.categoryReviewFlags().firstOrNull { it.id == id } ?: return null
         val before = flag.state
         val state = command.state ?: flag.state
@@ -153,7 +237,8 @@ class CatalogManager(private val reader: CatalogReader, private val appender: Ca
         require(requestedResolution == null || requestedResolution.length <= 1000) { "resolution must be at most 1000 characters" }
         flag.assignee = requestedAssignee ?: flag.assignee
         flag.state = state
-        flag.resolution = requestedResolution ?: flag.resolution ?: if (state == CategoryReviewFlagState.RESOLVED) "Resolved by admin" else null
+        flag.resolution =
+            requestedResolution ?: flag.resolution ?: if (state == CategoryReviewFlagState.RESOLVED) "Resolved by admin" else null
         flag.resolvedAt = if (state == CategoryReviewFlagState.RESOLVED) flag.resolvedAt ?: Instant.now() else null
         flag.resolvedBy = if (state == CategoryReviewFlagState.RESOLVED) actor else null
         flag.touch(actor)
@@ -162,17 +247,34 @@ class CatalogManager(private val reader: CatalogReader, private val appender: Ca
         return reader.categoryReviewFlags().firstOrNull { it.id == id }
     }
 
-    private fun createCategoryReviewFlag(storeId: UUID, source: CategoryReviewFlagSource, reason: String, actor: String, sourceFeedbackId: UUID? = null): CategoryReviewFlagEntity {
+    private fun createCategoryReviewFlag(
+        storeId: UUID,
+        source: CategoryReviewFlagSource,
+        reason: String,
+        actor: String,
+        sourceFeedbackId: UUID? = null,
+    ): CategoryReviewFlagEntity {
         val normalizedReason = reason.trim()
         require(normalizedReason.length in 1..500) { "category review reason is required" }
         reader.categoryReviewFlags(CategoryReviewFlagState.OPEN, storeId).firstOrNull { it.reason == normalizedReason }?.let { return it }
-        val flag = CategoryReviewFlagEntity(storeId = storeId, source = source, sourceFeedbackId = sourceFeedbackId, reason = normalizedReason).apply { createdBy(actor) }
+        val flag =
+            CategoryReviewFlagEntity(
+                storeId = storeId,
+                source = source,
+                sourceFeedbackId = sourceFeedbackId,
+                reason = normalizedReason,
+            ).apply {
+                createdBy(actor)
+            }
         appender.saveFlag(flag)
         appender.audit("CREATE_CATEGORY_REVIEW_FLAG", flag.id, actor, null, source.name, "CATEGORY_REVIEW_FLAG")
         return reader.categoryReviewFlags().first { it.id == flag.id }
     }
 
-    private fun resolveCategoryReviewFlagsForCorrection(storeId: UUID, actor: String) {
+    private fun resolveCategoryReviewFlagsForCorrection(
+        storeId: UUID,
+        actor: String,
+    ) {
         // Correcting categories resolves every open flag tied to the same store in one audit trail.
         reader.categoryReviewFlags(CategoryReviewFlagState.OPEN, storeId).forEach { flag ->
             flag.state = CategoryReviewFlagState.RESOLVED
@@ -181,7 +283,14 @@ class CatalogManager(private val reader: CatalogReader, private val appender: Ca
             flag.resolvedBy = actor
             flag.touch(actor)
             appender.saveFlag(flag)
-            appender.audit("RESOLVE_CATEGORY_REVIEW_FLAG", flag.id, actor, CategoryReviewFlagState.OPEN.name, CategoryReviewFlagState.RESOLVED.name, "CATEGORY_REVIEW_FLAG")
+            appender.audit(
+                "RESOLVE_CATEGORY_REVIEW_FLAG",
+                flag.id,
+                actor,
+                CategoryReviewFlagState.OPEN.name,
+                CategoryReviewFlagState.RESOLVED.name,
+                "CATEGORY_REVIEW_FLAG",
+            )
         }
     }
 
@@ -189,10 +298,15 @@ class CatalogManager(private val reader: CatalogReader, private val appender: Ca
         require(command.name.isNotBlank() && command.address.isNotBlank()) { "name and address are required" }
         require(command.categories.isNotEmpty()) { "at least one reviewed category is required" }
         require(command.coordinates.latitude >= BigDecimal(-90) && command.coordinates.latitude <= BigDecimal(90)) { "invalid latitude" }
-        require(command.coordinates.longitude >= BigDecimal(-180) && command.coordinates.longitude <= BigDecimal(180)) { "invalid longitude" }
+        require(
+            command.coordinates.longitude >= BigDecimal(-180) && command.coordinates.longitude <= BigDecimal(180),
+        ) { "invalid longitude" }
     }
 
-    private fun canTransition(source: StoreStatus, target: StoreStatus) = when (target) {
+    private fun canTransition(
+        source: StoreStatus,
+        target: StoreStatus,
+    ) = when (target) {
         StoreStatus.IN_REVIEW -> source in setOf(StoreStatus.DRAFT, StoreStatus.REJECTED)
         StoreStatus.PUBLISHED -> source == StoreStatus.IN_REVIEW
         StoreStatus.REJECTED -> source == StoreStatus.IN_REVIEW
@@ -203,16 +317,23 @@ class CatalogManager(private val reader: CatalogReader, private val appender: Ca
         val source = normalize(command.source)
         val target = command.target.trim()
         require(source.length in 1..120 && target.length in 1..200) { "source and target are required" }
-        if (command.targetType == CorrectionTargetType.CATEGORY) require(runCatching { Category.valueOf(target) }.isSuccess) { "target must be a category" }
+        if (command.targetType ==
+            CorrectionTargetType.CATEGORY
+        ) {
+            require(runCatching { Category.valueOf(target) }.isSuccess) { "target must be a category" }
+        }
         return source to target
     }
 
-    private fun String?.isCategoryReason() = this?.let { reason ->
-        val normalized = reason.lowercase()
-        normalized.contains("category") || Category.entries.any { normalized.contains(it.name.lowercase()) || normalized.contains(it.displayName.lowercase()) }
-    } ?: false
+    private fun String?.isCategoryReason() =
+        this?.let { reason ->
+            val normalized = reason.lowercase()
+            normalized.contains("category") ||
+                Category.entries.any { normalized.contains(it.name.lowercase()) || normalized.contains(it.displayName.lowercase()) }
+        } ?: false
 
     private fun String?.clean() = this?.trim()?.ifBlank { null }
+
     private fun normalize(value: String) = value.trim().lowercase()
 
     private companion object {

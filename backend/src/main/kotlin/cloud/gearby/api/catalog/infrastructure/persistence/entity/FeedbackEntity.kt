@@ -22,9 +22,13 @@ class FeedbackEntity(
     @Column(name = "reply_email") var replyEmail: String? = null,
     @Column(name = "contact_consent") var contactConsent: Boolean = false,
     @Column(name = "submitted_at") var submittedAt: Instant = Instant.now(),
-    @Enumerated(EnumType.STRING) @Column(name = "resolution_status") var resolutionStatus: FeedbackResolutionStatus = FeedbackResolutionStatus.PENDING,
+    @Enumerated(
+        EnumType.STRING,
+    ) @Column(name = "resolution_status") var resolutionStatus: FeedbackResolutionStatus = FeedbackResolutionStatus.PENDING,
     @Column(name = "resolution_summary") var resolutionSummary: String? = null,
-    @Enumerated(EnumType.STRING) @Column(name = "notification_status") var notificationStatus: NotificationStatus = NotificationStatus.NOT_REQUESTED,
+    @Enumerated(
+        EnumType.STRING,
+    ) @Column(name = "notification_status") var notificationStatus: NotificationStatus = NotificationStatus.NOT_REQUESTED,
     @Column(name = "resolved_at") var resolvedAt: Instant? = null,
     @Column(name = "resolved_by") var resolvedBy: String? = null,
 ) : AuditableEntity()

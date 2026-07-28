@@ -11,7 +11,9 @@ data class CorsProperties(
     val maxAge: Long = 3600,
 ) {
     fun normalizedAllowedOrigins(): List<String> {
-        require(allowedOrigins.none { it.trim() == "*" }) { "gearby.cors.allowed-origins must be explicit; wildcard origins are not allowed" }
+        require(
+            allowedOrigins.none { it.trim() == "*" },
+        ) { "gearby.cors.allowed-origins must be explicit; wildcard origins are not allowed" }
         return allowedOrigins.map { it.trim() }.filter { it.isNotBlank() }.distinct()
     }
 }

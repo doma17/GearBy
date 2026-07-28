@@ -6,5 +6,6 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor
 
 object TestAuthentication {
     fun admin(): RequestPostProcessor = jwt().authorities(SimpleGrantedAuthority("ADMIN"))
+
     fun user(): RequestPostProcessor = jwt()
 }

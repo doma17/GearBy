@@ -13,10 +13,11 @@ class SecurityCorsIntegrationTest {
     @Test
     fun `cors source allows configured frontend origin with credentials`() {
         val source = SecurityConfig().corsConfigurationSource(CorsProperties())
-        val request = MockHttpServletRequest(HttpMethod.OPTIONS.name(), "/api/v1/stores").apply {
-            addHeader("Origin", "http://localhost:3000")
-            addHeader("Access-Control-Request-Method", "GET")
-        }
+        val request =
+            MockHttpServletRequest(HttpMethod.OPTIONS.name(), "/api/v1/stores").apply {
+                addHeader("Origin", "http://localhost:3000")
+                addHeader("Access-Control-Request-Method", "GET")
+            }
 
         val configuration = source.getCorsConfiguration(request)
 

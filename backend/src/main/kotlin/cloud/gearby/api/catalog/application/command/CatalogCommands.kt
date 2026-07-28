@@ -35,7 +35,10 @@ data class FeedbackSubmitCommand(
     val categoryRelated: Boolean = false,
 )
 
-data class ManualCategoryReviewFlagCommand(val storeId: UUID?, val reason: String)
+data class ManualCategoryReviewFlagCommand(
+    val storeId: UUID?,
+    val reason: String,
+)
 
 data class StoreUpsertCommand(
     val name: String,

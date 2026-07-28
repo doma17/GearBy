@@ -1,6 +1,5 @@
 package cloud.gearby.api.identity
 
-import tools.jackson.databind.ObjectMapper
 import cloud.gearby.api.response.ApiErrorCode
 import cloud.gearby.api.response.ApiResponse
 import jakarta.servlet.http.HttpServletResponse
@@ -21,12 +20,13 @@ import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.security.oauth2.jwt.JwtValidators
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter
+import org.springframework.security.web.AuthenticationEntryPoint
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.access.AccessDeniedHandler
-import org.springframework.security.web.AuthenticationEntryPoint
 import org.springframework.web.cors.CorsConfiguration
 import org.springframework.web.cors.CorsConfigurationSource
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource
+import tools.jackson.databind.ObjectMapper
 
 @Configuration
 @EnableConfigurationProperties(OidcProperties::class, CorsProperties::class)
@@ -39,24 +39,33 @@ class SecurityConfig {
         objectMapper: ObjectMapper,
     ): SecurityFilterChain {
         // Authentication failures must preserve the public API error contract instead of returning HTML.
-        val authenticationEntryPoint = AuthenticationEntryPoint { _, response, _ ->
-            writeError(response, HttpStatus.UNAUTHORIZED, ApiErrorCode.UNAUTHORIZED, "authentication is required", objectMapper)
-        }
-        val accessDeniedHandler = AccessDeniedHandler { _, response, _ ->
-            writeError(response, HttpStatus.FORBIDDEN, ApiErrorCode.FORBIDDEN, "access is forbidden", objectMapper)
-        }
+        val authenticationEntryPoint =
+            AuthenticationEntryPoint { _, response, _ ->
+                writeError(response, HttpStatus.UNAUTHORIZED, ApiErrorCode.UNAUTHORIZED, "authentication is required", objectMapper)
+            }
+        val accessDeniedHandler =
+            AccessDeniedHandler { _, response, _ ->
+                writeError(response, HttpStatus.FORBIDDEN, ApiErrorCode.FORBIDDEN, "access is forbidden", objectMapper)
+            }
 
-        http.cors { it.configurationSource(corsConfigurationSource) }
+        http
+            .cors { it.configurationSource(corsConfigurationSource) }
             .csrf { it.disable() }
             .authorizeHttpRequests {
-                it.requestMatchers("/api/v1/health", "/actuator/health", "/error").permitAll()
-                    .requestMatchers(HttpMethod.GET, "/api/v1/categories", "/api/v1/stores", "/api/v1/stores/**").permitAll()
-                    .requestMatchers(HttpMethod.POST, "/api/v1/feedback").permitAll()
-                    .requestMatchers("/api/v1/admin/**").hasAuthority("ADMIN")
-                    .anyRequest().denyAll()
-            }
-            .exceptionHandling {
-                it.authenticationEntryPoint(authenticationEntryPoint)
+                it
+                    .requestMatchers("/api/v1/health", "/actuator/health", "/error")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/categories", "/api/v1/stores", "/api/v1/stores/**")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/v1/feedback")
+                    .permitAll()
+                    .requestMatchers("/api/v1/admin/**")
+                    .hasAuthority("ADMIN")
+                    .anyRequest()
+                    .denyAll()
+            }.exceptionHandling {
+                it
+                    .authenticationEntryPoint(authenticationEntryPoint)
                     .accessDeniedHandler(accessDeniedHandler)
             }
         // Local development fails closed for admin routes until a real OIDC issuer and audience are configured.
@@ -72,29 +81,36 @@ class SecurityConfig {
 
     @Bean
     fun corsConfigurationSource(properties: CorsProperties): CorsConfigurationSource {
-        val configuration = CorsConfiguration().apply {
-            allowedOrigins = properties.normalizedAllowedOrigins()
-            allowedMethods = properties.allowedMethods
-            allowedHeaders = properties.allowedHeaders
-            allowCredentials = properties.allowCredentials
-            maxAge = properties.maxAge
-        }
+        val configuration =
+            CorsConfiguration().apply {
+                allowedOrigins = properties.normalizedAllowedOrigins()
+                allowedMethods = properties.allowedMethods
+                allowedHeaders = properties.allowedHeaders
+                allowCredentials = properties.allowCredentials
+                maxAge = properties.maxAge
+            }
         return UrlBasedCorsConfigurationSource().apply { registerCorsConfiguration("/**", configuration) }
     }
 
-    private fun jwtDecoder(properties: OidcProperties): JwtDecoder = NimbusJwtDecoder.withIssuerLocation(properties.issuerUri).build().also { decoder ->
-        val audience = OAuth2TokenValidator<Jwt> { jwt ->
-            if (properties.audience in (jwt.audience ?: emptyList())) OAuth2TokenValidatorResult.success()
-            else OAuth2TokenValidatorResult.failure(OAuth2Error("invalid_token", "JWT audience is not accepted", null))
+    private fun jwtDecoder(properties: OidcProperties): JwtDecoder =
+        NimbusJwtDecoder.withIssuerLocation(properties.issuerUri).build().also { decoder ->
+            val audience =
+                OAuth2TokenValidator<Jwt> { jwt ->
+                    if (properties.audience in (jwt.audience ?: emptyList())) {
+                        OAuth2TokenValidatorResult.success()
+                    } else {
+                        OAuth2TokenValidatorResult.failure(OAuth2Error("invalid_token", "JWT audience is not accepted", null))
+                    }
+                }
+            decoder.setJwtValidator(DelegatingOAuth2TokenValidator(JwtValidators.createDefaultWithIssuer(properties.issuerUri), audience))
         }
-        decoder.setJwtValidator(DelegatingOAuth2TokenValidator(JwtValidators.createDefaultWithIssuer(properties.issuerUri), audience))
-    }
 
-    private fun jwtAuthenticationConverter() = JwtAuthenticationConverter().apply {
-        setJwtGrantedAuthoritiesConverter { jwt ->
-            (jwt.getClaimAsStringList("roles") ?: emptyList()).filter { it == "ADMIN" }.map(::SimpleGrantedAuthority)
+    private fun jwtAuthenticationConverter() =
+        JwtAuthenticationConverter().apply {
+            setJwtGrantedAuthoritiesConverter { jwt ->
+                (jwt.getClaimAsStringList("roles") ?: emptyList()).filter { it == "ADMIN" }.map(::SimpleGrantedAuthority)
+            }
         }
-    }
 
     private fun writeError(
         response: HttpServletResponse,

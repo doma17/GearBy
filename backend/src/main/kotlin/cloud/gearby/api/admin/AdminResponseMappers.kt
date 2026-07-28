@@ -12,7 +12,46 @@ import cloud.gearby.api.catalog.application.result.CategoryHealthResult
 import cloud.gearby.api.catalog.application.result.CategoryReviewFlagResult
 
 fun CategoryHealthResult.toResponse() = CategoryHealthResponse(category, publishedStoreCount, storesByLifecycle, openReviewFlagCount)
-fun CategoryReviewFlagResult.toResponse() = CategoryReviewFlagResponse(id, storeId, storeName, source, sourceFeedbackId, reason, state, assignee, resolution, createdAt, resolvedAt, resolvedBy)
-fun AdminFeedbackResult.toResponse() = AdminFeedbackResponse(id, storeId, storeName, kind, content, contactConsent, submittedAt, resolutionStatus, resolutionSummary, notificationStatus)
+
+fun CategoryReviewFlagResult.toResponse() =
+    CategoryReviewFlagResponse(
+        id,
+        storeId,
+        storeName,
+        source,
+        sourceFeedbackId,
+        reason,
+        state,
+        assignee,
+        resolution,
+        createdAt,
+        resolvedAt,
+        resolvedBy,
+    )
+
+fun AdminFeedbackResult.toResponse() =
+    AdminFeedbackResponse(
+        id,
+        storeId,
+        storeName,
+        kind,
+        content,
+        contactConsent,
+        submittedAt,
+        resolutionStatus,
+        resolutionSummary,
+        notificationStatus,
+    )
+
 fun AdminCorrectionRuleResult.toResponse() = CorrectionRuleResponse(id, source, targetType, target, active)
-fun AdminDashboardResult.toResponse() = AdminDashboardResponse(stores, feedback, activeCorrectionRules, categoryHealth.map { it.toResponse() }, openCategoryReviewFlagCount)
+
+fun AdminDashboardResult.toResponse() =
+    AdminDashboardResponse(
+        stores,
+        feedback,
+        activeCorrectionRules,
+        categoryHealth.map {
+            it.toResponse()
+        },
+        openCategoryReviewFlagCount,
+    )

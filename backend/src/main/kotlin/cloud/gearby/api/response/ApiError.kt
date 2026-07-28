@@ -1,3 +1,6 @@
 package cloud.gearby.api.response
 
-data class ApiError(val code: ApiErrorCode, val message: String)
+data class ApiError(
+    val code: ApiErrorCode,
+    val message: String,
+)

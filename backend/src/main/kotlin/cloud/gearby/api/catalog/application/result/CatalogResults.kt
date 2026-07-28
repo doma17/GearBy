@@ -12,7 +12,13 @@ import cloud.gearby.api.catalog.domain.StoreStatus
 import java.time.Instant
 import java.util.UUID
 
-data class AdminCorrectionRuleResult(val id: UUID, val source: String, val targetType: CorrectionTargetType, val target: String, val active: Boolean)
+data class AdminCorrectionRuleResult(
+    val id: UUID,
+    val source: String,
+    val targetType: CorrectionTargetType,
+    val target: String,
+    val active: Boolean,
+)
 
 data class AdminDashboardResult(
     val stores: Map<String, Int>,
@@ -35,9 +41,19 @@ data class AdminFeedbackResult(
     val notificationStatus: NotificationStatus,
 )
 
-data class AuditEventResult(val action: String, val resourceId: UUID, val actor: String, val createdAt: Instant)
+data class AuditEventResult(
+    val action: String,
+    val resourceId: UUID,
+    val actor: String,
+    val createdAt: Instant,
+)
 
-data class CategoryHealthResult(val category: Category, val publishedStoreCount: Int, val storesByLifecycle: Map<String, Int>, val openReviewFlagCount: Int)
+data class CategoryHealthResult(
+    val category: Category,
+    val publishedStoreCount: Int,
+    val storesByLifecycle: Map<String, Int>,
+    val openReviewFlagCount: Int,
+)
 
 data class CategoryReviewFlagResult(
     val id: UUID,
@@ -54,11 +70,22 @@ data class CategoryReviewFlagResult(
     val resolvedBy: String?,
 )
 
-data class FeedbackReceiptResult(val id: UUID, val status: String = "ACCEPTED")
+data class FeedbackReceiptResult(
+    val id: UUID,
+    val status: String = "ACCEPTED",
+)
 
-data class SearchDisclosureResult(val originalQuery: String, val appliedQuery: String, val correction: String?)
+data class SearchDisclosureResult(
+    val originalQuery: String,
+    val appliedQuery: String,
+    val correction: String?,
+)
 
-data class StorePageResult(val items: List<StoreResult>, val nextCursor: String?, val search: SearchDisclosureResult?)
+data class StorePageResult(
+    val items: List<StoreResult>,
+    val nextCursor: String?,
+    val search: SearchDisclosureResult?,
+)
 
 data class StoreResult(
     val id: UUID,
