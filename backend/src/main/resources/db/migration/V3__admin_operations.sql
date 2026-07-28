@@ -1,0 +1,8 @@
+ALTER TABLE feedback
+    ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'RECEIVED' CHECK (status IN ('RECEIVED', 'IN_REVIEW', 'RESOLVED', 'REJECTED')),
+    ADD COLUMN resolution_note VARCHAR(2000),
+    ADD COLUMN notification_state VARCHAR(20) NOT NULL DEFAULT 'NOT_REQUIRED' CHECK (notification_state IN ('NOT_REQUIRED', 'PENDING', 'SENT')),
+    ADD COLUMN notified_at TIMESTAMPTZ;
+
+UPDATE feedback
+SET notification_state = CASE WHEN contact_consent THEN 'PENDING' ELSE 'NOT_REQUIRED' END;

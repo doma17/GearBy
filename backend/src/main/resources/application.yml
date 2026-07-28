@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: gearby-api
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/gearby}
+    username: ${DATABASE_USERNAME:gearby}
+    password: ${DATABASE_PASSWORD}
+  flyway:
+    enabled: true
+gearby:
+  cors:
+    # Comma-separated exact browser origins; never use wildcard origins with credentials.
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+  oidc:
+    # Admin APIs fail closed until an issuer and audience are configured.
+    issuer-uri: ${OIDC_ISSUER_URI:}
+    audience: ${OIDC_AUDIENCE:}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
