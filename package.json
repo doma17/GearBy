@@ -1,0 +1,17 @@
+{
+  "name": "gearby",
+  "private": true,
+  "packageManager": "pnpm@10.28.1",
+  "scripts": {
+    "contract:lint": "redocly lint contracts/openapi.yaml",
+    "contract:generate": "openapi-typescript contracts/openapi.yaml -o frontend/src/generated/api.ts",
+    "contract:check": "pnpm contract:lint && pnpm contract:generate && git diff --exit-code -- frontend/src/generated/api.ts && pnpm --dir frontend typecheck",
+    "ci:contract": "pnpm contract:check",
+    "ci:frontend": "pnpm --dir frontend test && pnpm --dir frontend lint && pnpm --dir frontend typecheck && pnpm --dir frontend build"
+  },
+  "devDependencies": {
+    "@redocly/cli": "2.40.0",
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.9.3"
+  }
+}
