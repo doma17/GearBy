@@ -41,7 +41,7 @@ describe("Discovery", () => {
     render(<Discovery apiBaseUrl="http://api.example/" naverMapClientId="" />);
 
     expect(await screen.findByText("Trail House")).toBeTruthy();
-    await user.type(screen.getByRole("textbox", { name: "매장 또는 활동 검색" }), "trail");
+    await user.type(screen.getByRole("textbox", { name: "검색" }), "trail");
 
     expect(fetchMock).not.toHaveBeenCalledWith(
       expect.stringContaining("q=trail"),
@@ -119,7 +119,7 @@ describe("Discovery", () => {
     expect(screen.queryByText(/기본 카테고리/)).toBeNull();
   });
 
-  it("uses nationwide Korean-first discovery headings and map caption", async () => {
+  it("uses concise brand-led discovery copy", async () => {
     vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
       if (String(input).endsWith("/categories")) return Promise.resolve(success([]));
       return Promise.resolve(success({ items: [store] }));
@@ -128,11 +128,10 @@ describe("Discovery", () => {
     render(<Discovery apiBaseUrl="http://api.example" naverMapClientId="" />);
     await screen.findByText("Trail House");
 
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("전국 아웃도어 장비점을 찾아보세요");
-    expect(screen.getByText("전국 매장")).toBeTruthy();
-    expect(document.querySelector(".map-caption")?.textContent).toBe("네이버 지도 · 검증된 매장");
-    expect(screen.queryByText("주변 매장")).toBeNull();
-    expect(screen.queryByText("NAVER MAP · GEARBY VERIFIED PLACES")).toBeNull();
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("NearBy Gear");
+    expect(screen.getByText("CURATED STORES")).toBeTruthy();
+    expect(document.querySelector(".map-caption")?.textContent).toBe("GEARBY / CURATED STORES");
+    expect(screen.queryByText("전국 아웃도어 장비점을 찾아보세요")).toBeNull();
   });
 
   it("retries a corrected search with the original query and correction disabled", async () => {
@@ -150,7 +149,7 @@ describe("Discovery", () => {
 
     const user = userEvent.setup();
     render(<Discovery apiBaseUrl="http://api.example" naverMapClientId="" />);
-    await user.type(screen.getByRole("textbox", { name: "매장 또는 활동 검색" }), "trail");
+    await user.type(screen.getByRole("textbox", { name: "검색" }), "trail");
     await user.click(screen.getByRole("button", { name: "검색" }));
     const correctionStatus = (await screen.findByText(/“trek” 검색 결과입니다/)).closest("[role='status']");
     expect(correctionStatus?.tagName).toBe("DIV");
@@ -178,7 +177,7 @@ describe("Discovery", () => {
 
     const user = userEvent.setup();
     render(<Discovery apiBaseUrl="http://api.example" naverMapClientId="" />);
-    const input = screen.getByRole("textbox", { name: "매장 또는 활동 검색" });
+    const input = screen.getByRole("textbox", { name: "검색" });
     await user.type(input, "trail");
     await user.click(screen.getByRole("button", { name: "검색" }));
     expect(await screen.findByRole("button", { name: "원문으로 검색" })).toBeTruthy();
@@ -230,7 +229,105 @@ describe("Discovery", () => {
     expect(screen.queryByRole("button", { name: "이 지역 검색" })).toBeNull();
   });
 
-  it("shows freshness in results and detail, then returns focus to the selected result", async () => {
+  it("hides and shows the result panel without losing the active map", async () => {
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+      if (String(input).endsWith("/categories")) return Promise.resolve(success([]));
+      return Promise.resolve(success({ items: [store] }));
+    }));
+
+    const user = userEvent.setup();
+    render(<Discovery apiBaseUrl="http://api.example" naverMapClientId="" />);
+
+    expect(await screen.findByLabelText("매장 검색 결과")).toBeTruthy();
+    const close = screen.getByRole("button", { name: "목록 닫기" });
+    expect(close.textContent).toBe("×");
+    await user.click(close);
+    expect(document.getElementById("places-panel")?.getAttribute("aria-hidden")).toBe("true");
+
+    const open = screen.getByRole("button", { name: "목록 열기" });
+    expect(open.textContent).toBe("<<");
+    await user.click(open);
+    expect((await screen.findByLabelText("매장 검색 결과")).getAttribute("aria-hidden")).toBe("false");
+  });
+
+  it("centers the map on the browser location instead of the default center", async () => {
+    const centers: unknown[] = [];
+    const markerTitles: string[] = [];
+    class MockLatLng {
+      constructor(readonly latitude: number, readonly longitude: number) {}
+    }
+    class MockMap {
+      getBounds() {
+        return {
+          getSW: () => ({ lat: () => 37.4, lng: () => 126.7 }),
+          getNE: () => ({ lat: () => 37.7, lng: () => 127.2 }),
+        };
+      }
+      setCenter(position: unknown) { centers.push(position); }
+    }
+    window.naver = { maps: {
+      Map: MockMap,
+      LatLng: MockLatLng,
+      Marker: class {
+        constructor({ title }: { title: string }) { markerTitles.push(title); }
+        setMap() {}
+      },
+      Event: { addListener: () => undefined },
+    } };
+    vi.stubGlobal("navigator", {
+      geolocation: {
+        getCurrentPosition: (success: PositionCallback) => success({ coords: { latitude: 35.1796, longitude: 129.0756 } } as GeolocationPosition),
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+      if (String(input).endsWith("/categories")) return Promise.resolve(success([]));
+      return Promise.resolve(success({ items: [] }));
+    }));
+
+    const user = userEvent.setup();
+    render(<Discovery apiBaseUrl="http://api.example" naverMapClientId="client-id" />);
+    await user.click(await screen.findByRole("button", { name: "내 위치" }));
+
+    await waitFor(() => expect(centers).toHaveLength(1));
+    expect(centers[0]).toMatchObject({ latitude: 35.1796, longitude: 129.0756 });
+    expect(markerTitles).toEqual(["내 위치"]);
+  });
+
+  it("opens store detail when a map marker is selected", async () => {
+    let markerClick: (() => void) | undefined;
+    class MockMap {
+      getBounds() {
+        return {
+          getSW: () => ({ lat: () => 37.4, lng: () => 126.7 }),
+          getNE: () => ({ lat: () => 37.7, lng: () => 127.2 }),
+        };
+      }
+      setCenter() {}
+    }
+    class MockMarker {
+      constructor(readonly options: { title: string }) {}
+      setMap() {}
+    }
+    window.naver = { maps: {
+      Map: MockMap,
+      LatLng: class {},
+      Marker: MockMarker,
+      Event: { addListener: (target, event, listener) => { if (target instanceof MockMarker && event === "click" && target.options.title === store.name) markerClick = listener; } },
+    } };
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+      if (String(input).endsWith("/categories")) return Promise.resolve(success([]));
+      if (String(input).endsWith(`/stores/${store.id}`)) return Promise.resolve(success(store));
+      return Promise.resolve(success({ items: [store] }));
+    }));
+
+    render(<Discovery apiBaseUrl="http://api.example" naverMapClientId="client-id" />);
+    await waitFor(() => expect(markerClick).toBeTypeOf("function"));
+    act(() => markerClick?.());
+
+    expect(await screen.findByRole("heading", { name: store.name, level: 3 })).toBeTruthy();
+  });
+
+  it("keeps freshness metadata out of public results and detail, then returns focus to the selected result", async () => {
     vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
       const url = String(input);
       if (url.endsWith("/categories")) return Promise.resolve(success([]));
@@ -240,14 +337,37 @@ describe("Discovery", () => {
 
     const user = userEvent.setup();
     render(<Discovery apiBaseUrl="http://api.example" naverMapClientId="" />);
-    expect(await screen.findByText(/최근 확인/)).toBeTruthy();
     const result = await screen.findByRole("button", { name: /Peak Supply/ });
-    expect(result.textContent).toContain("재확인 필요");
+    expect(result.textContent).not.toMatch(/최근 확인|재확인 필요/);
     await user.click(result);
 
     expect(await screen.findByRole("heading", { name: "Peak Supply", level: 3 })).toBeTruthy();
-    expect(screen.getAllByText(/재확인 필요/)).toHaveLength(2);
+    expect(screen.queryByText(/최근 확인|재확인 필요/)).toBeNull();
+    expect(screen.getByRole("link", { name: "Naver Map Link" })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: /전화|길찾기|지도 열기/ })).toBeNull();
     await user.click(screen.getByRole("button", { name: "매장 상세 닫기" }));
     await waitFor(() => expect(document.activeElement).toBe(result));
+  });
+
+  it("opens a compact report form from the selected store detail", async () => {
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/categories")) return Promise.resolve(success([]));
+      if (url.endsWith(`/stores/${store.id}`)) return Promise.resolve(success(store));
+      return Promise.resolve(success({ items: [store] }));
+    }));
+
+    const user = userEvent.setup();
+    render(<Discovery apiBaseUrl="http://api.example" naverMapClientId="" />);
+    await user.click(await screen.findByRole("button", { name: /Trail House/ }));
+    await screen.findByRole("heading", { name: store.name, level: 3 });
+
+    expect(screen.queryByRole("dialog", { name: "매장 정보 신고" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "매장 정보 신고" }));
+    expect(screen.getByRole("dialog", { name: "매장 정보 신고" })).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "문제 내용" })).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "취소" }));
+    expect(screen.queryByRole("dialog", { name: "매장 정보 신고" })).toBeNull();
   });
 });

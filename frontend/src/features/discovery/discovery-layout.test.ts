@@ -14,5 +14,7 @@ it("keeps the adaptive accessibility contract", async () => {
   expect(css).toMatch(/\.detail-close[^}]*2\.75rem/);
   expect(css).toMatch(/\.store-list[^}]*align-content: start/);
   expect(css).toMatch(/\.places-content:has\(\.place-detail\)[^{]*\.store-list[^}]*display: none/);
+  expect(css).toMatch(/\.places-panel\.is-hidden[^}]*transform:/);
+  expect(css).toMatch(/\.places-panel[^}]*transition:/);
   expect(css).toMatch(/\.workspace-notice \{ top: 10\.75rem; max-width: calc\(100% - 28rem\)/);
 });
