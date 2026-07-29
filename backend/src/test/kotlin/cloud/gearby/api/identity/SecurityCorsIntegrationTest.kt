@@ -24,6 +24,7 @@ class SecurityCorsIntegrationTest {
         assertEquals(listOf("http://localhost:3000"), configuration?.allowedOrigins)
         assertEquals(true, configuration?.allowCredentials)
         assertTrue(configuration?.allowedMethods?.containsAll(listOf("GET", "POST", "PATCH", "DELETE", "OPTIONS")) == true)
+        assertTrue(configuration.allowedHeaders?.contains("X-XSRF-TOKEN") == true)
     }
 
     @Test

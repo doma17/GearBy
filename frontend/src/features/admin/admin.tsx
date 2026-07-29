@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import type { components } from "../../generated/api";
 import { readApiResponse } from "../../shared/api/api-response";
 
@@ -10,10 +10,15 @@ type Feedback = { id: string; storeName?: string | null; kind: string; content: 
 type CategoryHealth = { category: string; publishedStoreCount: number; storesByLifecycle: Record<string, number>; openReviewFlagCount: number };
 type CategoryReviewFlag = components["schemas"]["CategoryReviewFlag"];
 type Dashboard = { stores: Record<string, number>; feedback: Record<string, number>; activeCorrectionRules: number; categoryHealth: CategoryHealth[] };
+type Session = { authenticated: boolean; email?: string; csrfToken: string };
 
 export default function Admin({ apiBaseUrl }: { apiBaseUrl: string }) {
   const api = `${apiBaseUrl.replace(/\/$/, "")}/api/v1/admin`;
-  const [token, setToken] = useState(() => typeof window === "undefined" ? "" : sessionStorage.getItem("gearby-admin-token") ?? "");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [authenticated, setAuthenticated] = useState(false);
+  const [csrfToken, setCsrfToken] = useState("");
+  const [sessionReady, setSessionReady] = useState(false);
   const [stores, setStores] = useState<Store[]>([]);
   const [rules, setRules] = useState<Rule[]>([]);
   const [feedback, setFeedback] = useState<Feedback[]>([]);
@@ -23,27 +28,21 @@ export default function Admin({ apiBaseUrl }: { apiBaseUrl: string }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const headers = useMemo(() => {
-    const value = new Headers();
-    if (token) value.set("Authorization", `Bearer ${token}`);
-    return value;
-  }, [token]);
-
   async function request(path: string, init?: RequestInit) {
-    // Preserve the current admin JWT while allowing each action to add its own headers.
-    const requestHeaders = new Headers(headers);
+    const requestHeaders = new Headers(init?.headers);
     new Headers(init?.headers).forEach((value, key) => requestHeaders.set(key, value));
-    requestHeaders.set("Content-Type", "application/json");
-    const response = await fetch(`${api}${path}`, { ...init, headers: requestHeaders });
+    if (init?.body) requestHeaders.set("Content-Type", "application/json");
+    if (csrfToken && !["GET", "HEAD"].includes(init?.method ?? "GET")) requestHeaders.set("X-XSRF-TOKEN", csrfToken);
+    const response = await fetch(`${api}${path}`, { ...init, credentials: "include", headers: requestHeaders });
     return readApiResponse(response);
   }
 
-  async function load() {
-    if (!token) { setError("Enter an ADMIN JWT to load operations."); return; }
+  const load = useCallback(async () => {
     setLoading(true);
     try {
+      const get = async (path: string) => readApiResponse(await fetch(`${api}${path}`, { credentials: "include" }));
       const [storeGroups, nextRules, nextFeedback, nextDashboard, nextCategoryHealth, nextCategoryFlags] = await Promise.all([
-        request("/stores"), request("/correction-rules"), request("/feedback"), request("/dashboard"), request("/category-health"), request("/category-review-flags"),
+        get("/stores"), get("/correction-rules"), get("/feedback"), get("/dashboard"), get("/category-health"), get("/category-review-flags"),
       ]);
       setStores(Object.entries(storeGroups as Record<string, components["schemas"]["Store"][]>).flatMap(([status, items]) => items.map((store) => ({ ...store, status }))));
       setRules(nextRules as Rule[]);
@@ -57,12 +56,59 @@ export default function Admin({ apiBaseUrl }: { apiBaseUrl: string }) {
     } finally {
       setLoading(false);
     }
+  }, [api]);
+
+  const restoreSession = useCallback(async () => {
+    try {
+      const response = await fetch(`${api}/auth/session`, { credentials: "include" });
+      const session = await readApiResponse<Session>(response);
+      setAuthenticated(session.authenticated);
+      setCsrfToken(session.csrfToken);
+      if (session.authenticated) await load();
+    } catch {
+      setError("관리자 세션을 확인하지 못했습니다.");
+    } finally {
+      setSessionReady(true);
+    }
+  }, [api, load]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void restoreSession(); });
+    return () => window.clearTimeout(timer);
+  }, [restoreSession]);
+
+  async function login(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoading(true);
+    try {
+      const response = await fetch(`${api}/auth/login`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", ...(csrfToken ? { "X-XSRF-TOKEN": csrfToken } : {}) },
+        body: JSON.stringify({ email, password }),
+      });
+      const session = await readApiResponse<Session>(response);
+      setAuthenticated(session.authenticated);
+      setCsrfToken(session.csrfToken);
+      setPassword("");
+      await load();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "로그인하지 못했습니다.");
+    } finally {
+      setLoading(false);
+    }
   }
 
-  function saveToken(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    sessionStorage.setItem("gearby-admin-token", token);
-    void load();
+  async function logout() {
+    try {
+      const response = await fetch(`${api}/auth/logout`, { method: "POST", credentials: "include", headers: { "X-XSRF-TOKEN": csrfToken } });
+      const session = await readApiResponse<Session>(response);
+      setAuthenticated(session.authenticated);
+      setCsrfToken(session.csrfToken);
+      setStores([]); setRules([]); setFeedback([]); setDashboard(undefined); setCategoryHealth([]); setCategoryFlags([]);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "로그아웃하지 못했습니다.");
+    }
   }
 
   async function transitionStore(store: Store, action: "review" | "publish" | "reject") {
@@ -117,14 +163,17 @@ export default function Admin({ apiBaseUrl }: { apiBaseUrl: string }) {
   }
 
   return <main className="admin">
-    <header><p className="eyebrow">GEARBY ADMIN</p><h1>Operations</h1><p>Review stores, category consistency, corrections, and feedback.</p></header>
-    <form className="admin-token" onSubmit={saveToken}><label>ADMIN JWT<input type="password" value={token} onChange={(event) => setToken(event.target.value)} autoComplete="off" /></label><button>Load operations</button></form>
+    <header><p className="eyebrow">GEARBY ADMIN</p><h1>운영 관리</h1><p>매장, 카테고리, 검색 보정, 사용자 의견을 관리합니다.</p>{authenticated && <button type="button" onClick={() => void logout()}>로그아웃</button>}</header>
+    {!sessionReady && <p role="status">관리자 세션을 확인하는 중입니다.</p>}
+    {sessionReady && !authenticated && <form className="admin-token" onSubmit={(event) => void login(event)}><label>이메일<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" required /></label><label>비밀번호<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required /></label><button>로그인</button></form>}
     {error && <p className="error" role="alert">{error}</p>}
-    {loading && <p role="status">Loading operations…</p>}
+    {loading && <p role="status">운영 정보를 불러오는 중입니다.</p>}
+    {authenticated && <>
     {dashboard && <section className="admin-section"><h2>Dashboard</h2><div className="admin-cards">{Object.entries(dashboard.stores).map(([status, count]) => <p key={status}><strong>{count}</strong>{status.replaceAll("_", " ")}</p>)}<p><strong>{dashboard.activeCorrectionRules}</strong>active rules</p>{Object.entries(dashboard.feedback).map(([status, count]) => <p key={status}><strong>{count}</strong>feedback {status.replaceAll("_", " ").toLowerCase()}</p>)}</div><h3>Category health</h3><ul>{categoryHealth.map((item) => <li key={item.category} className={item.openReviewFlagCount ? "health-flag" : ""}>{item.category}: {item.publishedStoreCount} published · {item.openReviewFlagCount} open flags</li>)}</ul></section>}
     <section className="admin-section"><h2>Store review</h2><div className="admin-list">{stores.map((store) => <article key={store.id}><strong>{store.name}</strong><span>{store.address} · {store.categories.join(", ")} · {store.status}</span><div>{store.status === "DRAFT" || store.status === "REJECTED" ? <button onClick={() => void transitionStore(store, "review")}>Send to review</button> : null}{store.status === "IN_REVIEW" ? <><button onClick={() => void transitionStore(store, "publish")}>Publish</button><button onClick={() => void transitionStore(store, "reject")}>Reject</button></> : null}</div></article>)}{!stores.length && <p>No stores loaded.</p>}</div></section>
     <section className="admin-section"><h2>Correction rules</h2><form className="admin-rule" onSubmit={addRule}><label>Source<input name="source" required maxLength={120} /></label><label>Target type<select name="targetType" defaultValue="CATEGORY"><option>CATEGORY</option><option>STORE</option></select></label><label>Target<input name="target" required maxLength={200} /></label><button>Add rule</button></form><ul>{rules.map((rule) => <li key={rule.id}>{rule.source} → {rule.targetType}: {rule.target} {!rule.active && "(inactive)"} <button onClick={() => void updateRule(rule)}>{rule.active ? "Deactivate" : "Activate"}</button> <button onClick={() => void deleteRule(rule)}>Delete</button></li>)}</ul></section>
     <section className="admin-section"><h2>Category review</h2><form className="admin-rule" onSubmit={addCategoryFlag}><label>Store<select name="storeId" required><option value="" disabled>Select store</option>{stores.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}</select></label><label>Manual review reason<input name="reason" required maxLength={500} /></label><button>Add flag</button></form><ul>{categoryFlags.map((flag) => <li key={flag.id}>{flag.storeName && `${flag.storeName} · `}{flag.source}: {flag.reason} · {flag.state} {flag.state === "OPEN" && <button onClick={() => void updateCategoryFlag(flag.id, "RESOLVED")}>Resolve</button>}</li>)}</ul></section>
     <section className="admin-section"><h2>Feedback</h2><div className="admin-list">{feedback.map((item) => <article key={item.id}><strong>{item.kind} {item.storeName && `· ${item.storeName}`}</strong><span>{item.content}</span><small>{new Date(item.submittedAt).toLocaleString()} · {item.resolutionStatus} · notification: {item.notificationStatus}</small>{item.resolutionStatus === "PENDING" && <form onSubmit={(event) => void resolveFeedback(event, item.id)}><label>Resolution<select name="resolutionStatus" defaultValue="RESOLVED"><option>RESOLVED</option><option>REJECTED</option></select></label><label>Summary<input name="resolutionSummary" required maxLength={1000} /></label><button>Save resolution</button></form>}</article>)}{!feedback.length && <p>No feedback loaded.</p>}</div></section>
+    </>}
   </main>;
 }
