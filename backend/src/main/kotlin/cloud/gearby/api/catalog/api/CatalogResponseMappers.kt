@@ -22,6 +22,8 @@ fun StoreResult.toResponse() =
         phone,
         hours,
         description,
+        requireNotNull(verifiedAt) { "published store must have verifiedAt" },
+        requireNotNull(informationStatus) { "published store must have informationStatus" },
     )
 
 fun StorePageResult.toResponse() =

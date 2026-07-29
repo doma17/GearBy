@@ -7,6 +7,7 @@ import cloud.gearby.api.catalog.domain.Coordinates
 data class StoreQuery(
     val categories: Set<Category> = emptySet(),
     val query: String? = null,
+    val applyCorrection: Boolean = true,
     val bbox: Bbox? = null,
     val near: Coordinates? = null,
     val sort: String = "name",

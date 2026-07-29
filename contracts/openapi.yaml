@@ -2,7 +2,7 @@ openapi: 3.1.1
 info:
   title: GearBy API
   version: 1.0.0
-  description: Contract foundation for GearBy. Product behavior is implemented in later delivery stages.
+  description: Executable API contract derived from the GearBy Source of Truth. P0 is the first MVP and recommendation endpoints describe the planned P1 boundary.
 servers:
   - url: http://localhost:8080/api/v1
 paths:
@@ -29,6 +29,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Category'
         - $ref: '#/components/parameters/Query'
+        - $ref: '#/components/parameters/ApplyCorrection'
         - $ref: '#/components/parameters/Bbox'
         - $ref: '#/components/parameters/Near'
         - $ref: '#/components/parameters/Sort'
@@ -51,6 +52,7 @@ paths:
     post:
       operationId: submitFeedback
       summary: Submit anonymous correction, feedback, or new-store candidate
+      description: Authentication is not required. A reply email is accepted only with contact consent.
       requestBody:
         required: true
         content:
@@ -61,6 +63,64 @@ paths:
           $ref: '#/components/responses/ApiResponse'
         '400': { $ref: '#/components/responses/ApiError' }
         '429': { $ref: '#/components/responses/ApiError' }
+  /recommendation-sessions:
+    post:
+      operationId: createRecommendationSession
+      summary: Create a draft gear-group recommendation session
+      responses:
+        '201':
+          $ref: '#/components/responses/CreateRecommendationSessionSuccess'
+        '400': { $ref: '#/components/responses/ApiError' }
+  /recommendation-sessions/{sessionId}/profile:
+    put:
+      operationId: updateRecommendationSessionProfile
+      summary: Update a recommendation session profile
+      parameters: [{ $ref: '#/components/parameters/RecommendationSessionId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RecommendationProfile' }
+      responses:
+        '200':
+          $ref: '#/components/responses/UpdateRecommendationSessionProfileSuccess'
+        '400': { $ref: '#/components/responses/ApiError' }
+        '404': { $ref: '#/components/responses/ApiError' }
+  /recommendation-sessions/{sessionId}/guidance:
+    get:
+      operationId: getRecommendationSessionGuidance
+      summary: Get gear-group guidance for a recommendation session
+      parameters: [{ $ref: '#/components/parameters/RecommendationSessionId' }]
+      responses:
+        '200':
+          $ref: '#/components/responses/GetRecommendationSessionGuidanceSuccess'
+        '400': { $ref: '#/components/responses/ApiError' }
+        '404': { $ref: '#/components/responses/ApiError' }
+  /recommendation-sessions/{sessionId}/store-matches:
+    get:
+      operationId: getRecommendationSessionStoreMatches
+      summary: Get verified store matches for a recommendation session
+      parameters: [{ $ref: '#/components/parameters/RecommendationSessionId' }]
+      responses:
+        '200':
+          $ref: '#/components/responses/GetRecommendationSessionStoreMatchesSuccess'
+        '400': { $ref: '#/components/responses/ApiError' }
+        '404': { $ref: '#/components/responses/ApiError' }
+  /recommendation-sessions/{sessionId}/feedback:
+    post:
+      operationId: submitRecommendationSessionFeedback
+      summary: Submit feedback for a recommendation session
+      parameters: [{ $ref: '#/components/parameters/RecommendationSessionId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RecommendationFeedback' }
+      responses:
+        '202':
+          $ref: '#/components/responses/SubmitRecommendationSessionFeedbackSuccess'
+        '400': { $ref: '#/components/responses/ApiError' }
+        '404': { $ref: '#/components/responses/ApiError' }
   /admin/stores:
     get:
       operationId: listAdminStores
@@ -107,7 +167,8 @@ paths:
   /admin/stores/{storeId}/publish:
     post:
       operationId: publishAdminStore
-      summary: Publish a reviewed store
+      summary: Publish a reviewed store or re-verify a published store
+      description: Repeating this operation for a published store records a new administrator verification time.
       security: [{ adminOidc: [ADMIN] }]
       parameters: [{ $ref: '#/components/parameters/StoreId' }]
       responses:
@@ -302,6 +363,7 @@ components:
   securitySchemes:
     adminOidc:
       type: oauth2
+      description: Invite-only administrator authentication; public administrator signup is not provided.
       flows:
         authorizationCode:
           authorizationUrl: https://identity.example.com/authorize
@@ -309,8 +371,23 @@ components:
           scopes: { ADMIN: GearBy administrator access }
   parameters:
     StoreId: { name: storeId, in: path, required: true, schema: { type: string, format: uuid } }
-    Category: { name: category, in: query, schema: { $ref: '#/components/schemas/CategorySlug' } }
+    RecommendationSessionId: { name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }
+    Category:
+      name: category
+      in: query
+      description: Repeat the parameter to select multiple categories. Stores matching at least one selected category are returned.
+      style: form
+      explode: true
+      schema:
+        type: array
+        uniqueItems: true
+        items: { $ref: '#/components/schemas/CategorySlug' }
     Query: { name: q, in: query, schema: { type: string, maxLength: 120 } }
+    ApplyCorrection:
+      name: applyCorrection
+      in: query
+      description: Set to false when the user chooses to view results for the original query.
+      schema: { type: boolean, default: true }
     Bbox: { name: bbox, in: query, schema: { type: string, example: '126.7,37.4,127.2,37.7' } }
     Near: { name: near, in: query, schema: { type: string, example: '37.5665,126.9780' } }
     Sort: { name: sort, in: query, schema: { type: string, enum: [name, distance], default: name } }
@@ -327,6 +404,31 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ApiResponse' }
+    CreateRecommendationSessionSuccess:
+      description: Created recommendation session response envelope.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/CreateRecommendationSessionSuccessEnvelope' }
+    UpdateRecommendationSessionProfileSuccess:
+      description: Updated recommendation session response envelope.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/UpdateRecommendationSessionProfileSuccessEnvelope' }
+    GetRecommendationSessionGuidanceSuccess:
+      description: Recommendation guidance response envelope.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/GetRecommendationSessionGuidanceSuccessEnvelope' }
+    GetRecommendationSessionStoreMatchesSuccess:
+      description: Recommendation store matches response envelope.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/GetRecommendationSessionStoreMatchesSuccessEnvelope' }
+    SubmitRecommendationSessionFeedbackSuccess:
+      description: Recommendation feedback receipt response envelope.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/SubmitRecommendationSessionFeedbackSuccessEnvelope' }
   schemas:
     ApiResponse:
       type: object
@@ -345,6 +447,113 @@ components:
       properties:
         code: { type: string, enum: [INVALID_REQUEST, UNAUTHORIZED, FORBIDDEN, NOT_FOUND, CONFLICT, INTERNAL_ERROR] }
         message: { type: string }
+    CreateRecommendationSessionSuccessEnvelope:
+      type: object
+      required: [success, timestamp, data, error]
+      properties:
+        success: { type: boolean, const: true }
+        timestamp: { type: string, format: date-time }
+        data: { $ref: '#/components/schemas/RecommendationSession' }
+        error: { type: 'null' }
+    UpdateRecommendationSessionProfileSuccessEnvelope:
+      type: object
+      required: [success, timestamp, data, error]
+      properties:
+        success: { type: boolean, const: true }
+        timestamp: { type: string, format: date-time }
+        data: { $ref: '#/components/schemas/RecommendationSession' }
+        error: { type: 'null' }
+    GetRecommendationSessionGuidanceSuccessEnvelope:
+      type: object
+      required: [success, timestamp, data, error]
+      properties:
+        success: { type: boolean, const: true }
+        timestamp: { type: string, format: date-time }
+        data: { $ref: '#/components/schemas/RecommendationGuidance' }
+        error: { type: 'null' }
+    GetRecommendationSessionStoreMatchesSuccessEnvelope:
+      type: object
+      required: [success, timestamp, data, error]
+      properties:
+        success: { type: boolean, const: true }
+        timestamp: { type: string, format: date-time }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/StoreMatch' }
+        error: { type: 'null' }
+    SubmitRecommendationSessionFeedbackSuccessEnvelope:
+      type: object
+      required: [success, timestamp, data, error]
+      properties:
+        success: { type: boolean, const: true }
+        timestamp: { type: string, format: date-time }
+        data: { $ref: '#/components/schemas/RecommendationFeedbackReceipt' }
+        error: { type: 'null' }
+    RecommendationSession:
+      type: object
+      required: [id, status]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [CREATED, PROFILE_SAVED, GUIDANCE_READY] }
+    RecommendationProfile:
+      type: object
+      required: [activity, experienceLevel, tripDuration, season, partySize, transport, preferences, constraints]
+      properties:
+        activity: { type: string, minLength: 1, maxLength: 100 }
+        experienceLevel: { type: string, minLength: 1, maxLength: 100 }
+        tripDuration: { type: string, minLength: 1, maxLength: 100 }
+        season: { type: string, minLength: 1, maxLength: 100 }
+        partySize: { type: integer, minimum: 1 }
+        transport: { type: string, minLength: 1, maxLength: 100 }
+        preferences: { type: array, items: { type: string, minLength: 1, maxLength: 200 }, uniqueItems: true }
+        constraints: { type: array, items: { type: string, minLength: 1, maxLength: 200 }, uniqueItems: true }
+        additionalContext:
+          type: object
+          maxProperties: 50
+          additionalProperties:
+            oneOf:
+              - { type: string, maxLength: 500 }
+              - { type: number }
+              - { type: boolean }
+              - { type: array, maxItems: 20, items: { type: string, maxLength: 200 } }
+    RecommendationGuidance:
+      type: object
+      required: [ruleVersion, gearGroups, explanations, warnings, unmetConstraints]
+      properties:
+        ruleVersion: { type: string, minLength: 1, maxLength: 100 }
+        gearGroups: { type: array, items: { $ref: '#/components/schemas/GearGroup' } }
+        explanations: { type: array, items: { type: string } }
+        warnings: { type: array, items: { type: string } }
+        unmetConstraints: { type: array, items: { type: string } }
+    GearGroup:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        starterKit: { type: boolean }
+    StoreMatch:
+      type: object
+      required: [storeId, gearGroup, sourceType, sourceUrl, verifiedAt, expiresAt, verificationStatus]
+      properties:
+        storeId: { type: string, format: uuid }
+        gearGroup: { $ref: '#/components/schemas/GearGroup' }
+        store: { $ref: '#/components/schemas/Store' }
+        sourceType: { type: string }
+        sourceUrl: { type: string, format: uri }
+        verifiedAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        verificationStatus: { type: string, enum: [VERIFIED] }
+    RecommendationFeedback:
+      type: object
+      required: [helpful]
+      properties:
+        helpful: { type: boolean }
+        reason: { type: string, minLength: 1, maxLength: 2000 }
+    RecommendationFeedbackReceipt:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [ACCEPTED] }
     Health:
       type: object
       required: [status]
@@ -362,7 +571,7 @@ components:
         longitude: { type: number, minimum: -180, maximum: 180 }
     Store:
       type: object
-      required: [id, name, address, coordinates, categories]
+      required: [id, name, address, coordinates, categories, verifiedAt, informationStatus]
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
@@ -372,6 +581,9 @@ components:
         phone: { type: string }
         hours: { type: string }
         description: { type: string }
+        verifiedAt: { type: string, format: date-time }
+        informationStatus: { $ref: '#/components/schemas/StoreInformationStatus' }
+    StoreInformationStatus: { type: string, enum: [VERIFIED, REVIEW_DUE] }
     StoreInput:
       type: object
       required: [name, address, coordinates, categories]
@@ -408,8 +620,8 @@ components:
         kind: { type: string, enum: [CORRECTION, GENERAL, NEW_STORE] }
         storeId: { type: string, format: uuid }
         content: { type: string, minLength: 1, maxLength: 2000 }
-        replyEmail: { type: string, format: email }
-        contactConsent: { type: boolean }
+        replyEmail: { type: string, format: email, description: Optional reply address; requires contactConsent=true. }
+        contactConsent: { type: boolean, description: Must be true when replyEmail is provided. }
         categoryRelated: { type: boolean, default: false }
     FeedbackReceipt:
       type: object
@@ -460,12 +672,22 @@ components:
         type: array
         items: { $ref: '#/components/schemas/AdminStore' }
     AdminStore:
-      allOf:
-        - $ref: '#/components/schemas/Store'
-        - type: object
-          required: [status]
-          properties:
-            status: { type: string, enum: [DRAFT, IN_REVIEW, PUBLISHED, REJECTED] }
+      type: object
+      required: [id, name, address, coordinates, categories, status]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        address: { type: string }
+        coordinates: { $ref: '#/components/schemas/Coordinates' }
+        categories: { type: array, minItems: 1, items: { $ref: '#/components/schemas/CategorySlug' } }
+        phone: { type: string }
+        hours: { type: string }
+        description: { type: string }
+        status: { type: string, enum: [DRAFT, IN_REVIEW, PUBLISHED, REJECTED] }
+        verifiedAt: { type: [string, 'null'], format: date-time }
+        informationStatus:
+          type: [string, 'null']
+          enum: [VERIFIED, REVIEW_DUE, null]
     CategoryHealth:
       type: object
       required: [category, publishedStoreCount, storesByLifecycle, openReviewFlagCount]

@@ -21,14 +21,24 @@ import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Import
+import org.springframework.context.annotation.Primary
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
+import org.springframework.test.context.TestPropertySource
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.patch
 import org.springframework.test.web.servlet.post
 import java.math.BigDecimal
+import java.sql.Timestamp
+import java.time.Clock
+import java.time.Duration
+import java.time.Instant
+import java.time.ZoneOffset
 import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -36,6 +46,8 @@ import kotlin.test.assertNotNull
 @Tag("integration")
 @SpringBootTest
 @AutoConfigureMockMvc
+@Import(CatalogWorkflowIntegrationTest.FixedClockConfiguration::class)
+@TestPropertySource(properties = ["gearby.catalog.review-period=PT24H"])
 class CatalogWorkflowIntegrationTest
     @Autowired
     constructor(
@@ -59,6 +71,10 @@ class CatalogWorkflowIntegrationTest
             )
             jdbc.update("DELETE FROM store_categories WHERE store_id NOT IN (:seedIds)", mapOf("seedIds" to seedIds))
             jdbc.update("DELETE FROM stores WHERE id NOT IN (:seedIds)", mapOf("seedIds" to seedIds))
+            jdbc.update(
+                "UPDATE stores SET verified_at = updated_at WHERE id IN (:seedIds) AND status = 'PUBLISHED'",
+                mapOf("seedIds" to seedIds),
+            )
         }
 
         @Test
@@ -160,10 +176,90 @@ class CatalogWorkflowIntegrationTest
                 jsonPath("$.data.search.correction") { value("백패킨 → BACKPACKING") }
                 jsonPath("$.data.items[0].id") { value(published.id.toString()) }
             }
+            mockMvc
+                .get("/api/v1/stores") {
+                    param("q", "백패킨")
+                    param("applyCorrection", "false")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.search.originalQuery") { value("백패킨") }
+                    jsonPath("$.data.search.appliedQuery") { value("백패킨") }
+                    jsonPath("$.data.search.correction") { value(null) }
+                    jsonPath("$.data.items.length()") { value(0) }
+                }
             mockMvc.get("/api/v1/stores/${draft.id}").andExpect {
                 status { isNotFound() }
                 jsonPath("$.success") { value(false) }
                 jsonPath("$.error.code") { value("NOT_FOUND") }
+            }
+        }
+
+        @Test
+        fun `freshness changes at the fixed clock boundary without hiding published stores`() {
+            val storeId = UUID.fromString("11111111-1111-1111-1111-111111111111")
+            mapOf(
+                FIXED_NOW.minus(REVIEW_PERIOD).plusSeconds(1) to "VERIFIED",
+                FIXED_NOW.minus(REVIEW_PERIOD) to "REVIEW_DUE",
+                FIXED_NOW.minus(REVIEW_PERIOD).minusSeconds(1) to "REVIEW_DUE",
+            ).forEach { (verifiedAt, expectedStatus) ->
+                jdbc.update(
+                    "UPDATE stores SET verified_at = :verifiedAt WHERE id = :id",
+                    mapOf("verifiedAt" to Timestamp.from(verifiedAt), "id" to storeId),
+                )
+
+                mockMvc.get("/api/v1/stores/$storeId").andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.verifiedAt") { value(verifiedAt.toString()) }
+                    jsonPath("$.data.informationStatus") { value(expectedStatus) }
+                }
+            }
+        }
+
+        @Test
+        fun `admin freshness follows lifecycle while public responses remain published only`() {
+            val admin = TestAuthentication.admin()
+            mockMvc
+                .post("/api/v1/admin/stores") {
+                    with(admin)
+                    contentType = org.springframework.http.MediaType.APPLICATION_JSON
+                    content =
+                        """
+                        {
+                          "name":"Lifecycle freshness store",
+                          "address":"Seoul",
+                          "coordinates":{"latitude":37.5,"longitude":127.0},
+                          "categories":["HIKING"]
+                        }
+                        """.trimIndent()
+                }.andExpect {
+                    status { isCreated() }
+                    jsonPath("$.data.status") { value("DRAFT") }
+                    jsonPath("$.data.verifiedAt") { value(null) }
+                    jsonPath("$.data.informationStatus") { value(null) }
+                }
+            val draftId = catalog.findByStatus(StoreStatus.DRAFT).single { it.name == "Lifecycle freshness store" }.id
+
+            mockMvc.get("/api/v1/stores/$draftId").andExpect { status { isNotFound() } }
+            mockMvc.post("/api/v1/admin/stores/$draftId/review") { with(admin) }.andExpect { status { isOk() } }
+            mockMvc.post("/api/v1/admin/stores/$draftId/publish") { with(admin) }.andExpect {
+                status { isOk() }
+                jsonPath("$.data.status") { value("PUBLISHED") }
+                jsonPath("$.data.verifiedAt") { value(FIXED_NOW.toString()) }
+                jsonPath("$.data.informationStatus") { value("VERIFIED") }
+            }
+            mockMvc.get("/api/v1/stores/$draftId").andExpect {
+                status { isOk() }
+                jsonPath("$.data.verifiedAt") { value(FIXED_NOW.toString()) }
+                jsonPath("$.data.informationStatus") { value("VERIFIED") }
+            }
+            jdbc.update(
+                "UPDATE stores SET verified_at = :verifiedAt WHERE id = :id",
+                mapOf("verifiedAt" to Timestamp.from(FIXED_NOW.minus(REVIEW_PERIOD)), "id" to draftId),
+            )
+            mockMvc.post("/api/v1/admin/stores/$draftId/publish") { with(admin) }.andExpect {
+                status { isOk() }
+                jsonPath("$.data.verifiedAt") { value(FIXED_NOW.toString()) }
+                jsonPath("$.data.informationStatus") { value("VERIFIED") }
             }
         }
 
@@ -451,5 +547,17 @@ class CatalogWorkflowIntegrationTest
             catalog.transition(draft.id, StoreStatus.REJECTED, "test-admin", "Category is wrong")
 
             assertEquals(CategoryReviewFlagSource.REJECTION, catalog.categoryReviewFlags(storeId = draft.id).single().source)
+        }
+
+        @TestConfiguration(proxyBeanMethods = false)
+        class FixedClockConfiguration {
+            @Bean
+            @Primary
+            fun clock(): Clock = Clock.fixed(FIXED_NOW, ZoneOffset.UTC)
+        }
+
+        private companion object {
+            val FIXED_NOW: Instant = Instant.parse("2026-01-02T03:04:05Z")
+            val REVIEW_PERIOD: Duration = Duration.ofHours(24)
         }
     }

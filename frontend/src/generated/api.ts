@@ -81,8 +81,96 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Submit anonymous correction, feedback, or new-store candidate */
+        /**
+         * Submit anonymous correction, feedback, or new-store candidate
+         * @description Authentication is not required. A reply email is accepted only with contact consent.
+         */
         post: operations["submitFeedback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recommendation-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a draft gear-group recommendation session */
+        post: operations["createRecommendationSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recommendation-sessions/{sessionId}/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update a recommendation session profile */
+        put: operations["updateRecommendationSessionProfile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recommendation-sessions/{sessionId}/guidance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get gear-group guidance for a recommendation session */
+        get: operations["getRecommendationSessionGuidance"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recommendation-sessions/{sessionId}/store-matches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get verified store matches for a recommendation session */
+        get: operations["getRecommendationSessionStoreMatches"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recommendation-sessions/{sessionId}/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit feedback for a recommendation session */
+        post: operations["submitRecommendationSessionFeedback"];
         delete?: never;
         options?: never;
         head?: never;
@@ -133,7 +221,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Publish a reviewed store */
+        /**
+         * Publish a reviewed store or re-verify a published store
+         * @description Repeating this operation for a published store records a new administrator verification time.
+         */
         post: operations["publishAdminStore"];
         delete?: never;
         options?: never;
@@ -332,6 +423,99 @@ export interface components {
             code: "INVALID_REQUEST" | "UNAUTHORIZED" | "FORBIDDEN" | "NOT_FOUND" | "CONFLICT" | "INTERNAL_ERROR";
             message: string;
         };
+        CreateRecommendationSessionSuccessEnvelope: {
+            /** @constant */
+            success: true;
+            /** Format: date-time */
+            timestamp: string;
+            data: components["schemas"]["RecommendationSession"];
+            error: null;
+        };
+        UpdateRecommendationSessionProfileSuccessEnvelope: {
+            /** @constant */
+            success: true;
+            /** Format: date-time */
+            timestamp: string;
+            data: components["schemas"]["RecommendationSession"];
+            error: null;
+        };
+        GetRecommendationSessionGuidanceSuccessEnvelope: {
+            /** @constant */
+            success: true;
+            /** Format: date-time */
+            timestamp: string;
+            data: components["schemas"]["RecommendationGuidance"];
+            error: null;
+        };
+        GetRecommendationSessionStoreMatchesSuccessEnvelope: {
+            /** @constant */
+            success: true;
+            /** Format: date-time */
+            timestamp: string;
+            data: components["schemas"]["StoreMatch"][];
+            error: null;
+        };
+        SubmitRecommendationSessionFeedbackSuccessEnvelope: {
+            /** @constant */
+            success: true;
+            /** Format: date-time */
+            timestamp: string;
+            data: components["schemas"]["RecommendationFeedbackReceipt"];
+            error: null;
+        };
+        RecommendationSession: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            status: "CREATED" | "PROFILE_SAVED" | "GUIDANCE_READY";
+        };
+        RecommendationProfile: {
+            activity: string;
+            experienceLevel: string;
+            tripDuration: string;
+            season: string;
+            partySize: number;
+            transport: string;
+            preferences: string[];
+            constraints: string[];
+            additionalContext?: {
+                [key: string]: string | number | boolean | string[];
+            };
+        };
+        RecommendationGuidance: {
+            ruleVersion: string;
+            gearGroups: components["schemas"]["GearGroup"][];
+            explanations: string[];
+            warnings: string[];
+            unmetConstraints: string[];
+        };
+        GearGroup: {
+            name: string;
+            starterKit?: boolean;
+        };
+        StoreMatch: {
+            /** Format: uuid */
+            storeId: string;
+            gearGroup: components["schemas"]["GearGroup"];
+            store?: components["schemas"]["Store"];
+            sourceType: string;
+            /** Format: uri */
+            sourceUrl: string;
+            /** Format: date-time */
+            verifiedAt: string;
+            /** Format: date-time */
+            expiresAt: string;
+            /** @enum {string} */
+            verificationStatus: "VERIFIED";
+        };
+        RecommendationFeedback: {
+            helpful: boolean;
+            reason?: string;
+        };
+        RecommendationFeedbackReceipt: {
+            /** @enum {string} */
+            status: "ACCEPTED";
+        };
         Health: {
             /** @enum {string} */
             status: "UP";
@@ -356,7 +540,12 @@ export interface components {
             phone?: string;
             hours?: string;
             description?: string;
+            /** Format: date-time */
+            verifiedAt: string;
+            informationStatus: components["schemas"]["StoreInformationStatus"];
         };
+        /** @enum {string} */
+        StoreInformationStatus: "VERIFIED" | "REVIEW_DUE";
         StoreInput: {
             name: string;
             address: string;
@@ -385,8 +574,12 @@ export interface components {
             /** Format: uuid */
             storeId?: string;
             content: string;
-            /** Format: email */
+            /**
+             * Format: email
+             * @description Optional reply address; requires contactConsent=true.
+             */
             replyEmail?: string;
+            /** @description Must be true when replyEmail is provided. */
             contactConsent?: boolean;
             /** @default false */
             categoryRelated: boolean;
@@ -440,9 +633,22 @@ export interface components {
         AdminStoreGroups: {
             [key: string]: components["schemas"]["AdminStore"][];
         };
-        AdminStore: components["schemas"]["Store"] & {
+        AdminStore: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            address: string;
+            coordinates: components["schemas"]["Coordinates"];
+            categories: components["schemas"]["CategorySlug"][];
+            phone?: string;
+            hours?: string;
+            description?: string;
             /** @enum {string} */
             status: "DRAFT" | "IN_REVIEW" | "PUBLISHED" | "REJECTED";
+            /** Format: date-time */
+            verifiedAt?: string | null;
+            /** @enum {string|null} */
+            informationStatus?: "VERIFIED" | "REVIEW_DUE" | null;
         };
         CategoryHealth: {
             category: components["schemas"]["CategorySlug"];
@@ -515,11 +721,60 @@ export interface components {
                 "application/json": components["schemas"]["ApiResponse"];
             };
         };
+        /** @description Created recommendation session response envelope. */
+        CreateRecommendationSessionSuccess: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["CreateRecommendationSessionSuccessEnvelope"];
+            };
+        };
+        /** @description Updated recommendation session response envelope. */
+        UpdateRecommendationSessionProfileSuccess: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["UpdateRecommendationSessionProfileSuccessEnvelope"];
+            };
+        };
+        /** @description Recommendation guidance response envelope. */
+        GetRecommendationSessionGuidanceSuccess: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["GetRecommendationSessionGuidanceSuccessEnvelope"];
+            };
+        };
+        /** @description Recommendation store matches response envelope. */
+        GetRecommendationSessionStoreMatchesSuccess: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["GetRecommendationSessionStoreMatchesSuccessEnvelope"];
+            };
+        };
+        /** @description Recommendation feedback receipt response envelope. */
+        SubmitRecommendationSessionFeedbackSuccess: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["SubmitRecommendationSessionFeedbackSuccessEnvelope"];
+            };
+        };
     };
     parameters: {
         StoreId: string;
-        Category: components["schemas"]["CategorySlug"];
+        RecommendationSessionId: string;
+        /** @description Repeat the parameter to select multiple categories. Stores matching at least one selected category are returned. */
+        Category: components["schemas"]["CategorySlug"][];
         Query: string;
+        /** @description Set to false when the user chooses to view results for the original query. */
+        ApplyCorrection: boolean;
         Bbox: string;
         Near: string;
         Sort: "name" | "distance";
@@ -561,8 +816,11 @@ export interface operations {
     listStores: {
         parameters: {
             query?: {
+                /** @description Repeat the parameter to select multiple categories. Stores matching at least one selected category are returned. */
                 category?: components["parameters"]["Category"];
                 q?: components["parameters"]["Query"];
+                /** @description Set to false when the user chooses to view results for the original query. */
+                applyCorrection?: components["parameters"]["ApplyCorrection"];
                 bbox?: components["parameters"]["Bbox"];
                 near?: components["parameters"]["Near"];
                 sort?: components["parameters"]["Sort"];
@@ -610,6 +868,91 @@ export interface operations {
             202: components["responses"]["ApiResponse"];
             400: components["responses"]["ApiError"];
             429: components["responses"]["ApiError"];
+        };
+    };
+    createRecommendationSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: components["responses"]["CreateRecommendationSessionSuccess"];
+            400: components["responses"]["ApiError"];
+        };
+    };
+    updateRecommendationSessionProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["RecommendationSessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecommendationProfile"];
+            };
+        };
+        responses: {
+            200: components["responses"]["UpdateRecommendationSessionProfileSuccess"];
+            400: components["responses"]["ApiError"];
+            404: components["responses"]["ApiError"];
+        };
+    };
+    getRecommendationSessionGuidance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["RecommendationSessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["GetRecommendationSessionGuidanceSuccess"];
+            400: components["responses"]["ApiError"];
+            404: components["responses"]["ApiError"];
+        };
+    };
+    getRecommendationSessionStoreMatches: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["RecommendationSessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["GetRecommendationSessionStoreMatchesSuccess"];
+            400: components["responses"]["ApiError"];
+            404: components["responses"]["ApiError"];
+        };
+    };
+    submitRecommendationSessionFeedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["RecommendationSessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecommendationFeedback"];
+            };
+        };
+        responses: {
+            202: components["responses"]["SubmitRecommendationSessionFeedbackSuccess"];
+            400: components["responses"]["ApiError"];
+            404: components["responses"]["ApiError"];
         };
     };
     listAdminStores: {

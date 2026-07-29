@@ -4,26 +4,61 @@ on:
   workflow_call:
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      frontend: ${{ steps.paths.outputs.frontend }}
+      backend: ${{ steps.paths.outputs.backend }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: paths
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          changed() {
+            if git diff --quiet "$BASE_SHA" "$GITHUB_SHA" -- "${@:2}"; then
+              echo "$1=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "$1=true" >> "$GITHUB_OUTPUT"
+            fi
+          }
+
+          changed frontend frontend contracts/openapi.yaml package.json pnpm-lock.yaml pnpm-workspace.yaml .nvmrc .github/workflows
+          changed backend backend .github/workflows
+
   frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 6
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
+          package-manager-cache: false
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - run: pnpm --dir frontend build
 
   backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 8
     defaults:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

@@ -5,13 +5,32 @@ import cloud.gearby.api.catalog.application.result.AdminFeedbackResult
 import cloud.gearby.api.catalog.application.result.CategoryReviewFlagResult
 import cloud.gearby.api.catalog.application.result.StoreResult
 import cloud.gearby.api.catalog.domain.Coordinates
+import cloud.gearby.api.catalog.domain.StoreInformationStatus
 import cloud.gearby.api.catalog.infrastructure.persistence.entity.CategoryReviewFlagEntity
 import cloud.gearby.api.catalog.infrastructure.persistence.entity.CorrectionRuleEntity
 import cloud.gearby.api.catalog.infrastructure.persistence.entity.FeedbackEntity
 import cloud.gearby.api.catalog.infrastructure.persistence.entity.StoreEntity
+import java.time.Clock
+import java.time.Duration
 
-fun StoreEntity.toResult() =
-    StoreResult(id, name, address, Coordinates(latitude, longitude), categories.toSet(), phone, hours, description, status)
+fun StoreEntity.toResult(
+    clock: Clock,
+    reviewPeriod: Duration,
+) = StoreResult(
+    id,
+    name,
+    address,
+    Coordinates(latitude, longitude),
+    categories.toSet(),
+    phone,
+    hours,
+    description,
+    status,
+    verifiedAt,
+    verifiedAt?.let {
+        if (clock.instant().isBefore(it.plus(reviewPeriod))) StoreInformationStatus.VERIFIED else StoreInformationStatus.REVIEW_DUE
+    },
+)
 
 fun CorrectionRuleEntity.toResult() = AdminCorrectionRuleResult(id, source, targetType, target, active)
 

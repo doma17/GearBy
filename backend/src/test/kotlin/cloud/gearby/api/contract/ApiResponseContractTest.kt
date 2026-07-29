@@ -11,7 +11,13 @@ import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
+import org.yaml.snakeyaml.Yaml
+import java.nio.file.Path
+import kotlin.io.path.readText
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 
+/** Verifies that runtime responses keep the documented public and admin boundaries. */
 @Tag("contract")
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -66,4 +72,29 @@ class ApiResponseContractTest
                 jsonPath("$.data") { exists() }
             }
         }
+
+        @Test
+        fun `OpenAPI separates public freshness from admin lifecycle semantics`() {
+            val openApi = Yaml().load<Map<String, Any?>>(Path.of("..", "contracts", "openapi.yaml").readText())
+            val schemas = openApi.node("components", "schemas")
+            val applyCorrection = openApi.node("components", "parameters", "ApplyCorrection", "schema")
+            val publicStore = schemas.node("Store")
+            val adminStore = schemas.node("AdminStore")
+            val adminProperties = adminStore.node("properties")
+
+            assertEquals(true, applyCorrection["default"])
+            assertEquals(
+                listOf("id", "name", "address", "coordinates", "categories", "verifiedAt", "informationStatus"),
+                publicStore["required"],
+            )
+            assertFalse("allOf" in adminStore)
+            assertEquals(listOf("id", "name", "address", "coordinates", "categories", "status"), adminStore["required"])
+            assertEquals(listOf("string", "null"), adminProperties.node("verifiedAt")["type"])
+            assertEquals(listOf("string", "null"), adminProperties.node("informationStatus")["type"])
+            assertEquals(listOf("VERIFIED", "REVIEW_DUE", null), adminProperties.node("informationStatus")["enum"])
+        }
     }
+
+@Suppress("UNCHECKED_CAST")
+private fun Map<String, Any?>.node(vararg path: String): Map<String, Any?> =
+    path.fold(this) { node, key -> node.getValue(key) as Map<String, Any?> }

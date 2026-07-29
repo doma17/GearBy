@@ -96,4 +96,6 @@ private fun StoreResult.toAdminResponse() =
         hours,
         description,
         status!!.name,
+        verifiedAt,
+        informationStatus,
     )

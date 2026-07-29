@@ -1,23 +1,25 @@
-## Linked issue
+## 관련 이슈
+
+<!-- 병합 시 이슈가 자동으로 종료되도록 아래 번호를 입력해 주세요. -->
 
 Closes #
 
-## Change summary
+## 변경 사항 요약
 
-<!-- Briefly describe the user-visible change and why it is needed. -->
+<!-- 사용자에게 보이는 변경 사항과 필요한 이유를 간단히 작성해 주세요. -->
 
-## Verification
+## 검증 내용
 
-- [ ] I ran tests or manual verification and confirmed the result.
-- [ ] I updated relevant documentation, if applicable.
+- [ ] 테스트 또는 수동 검증을 실행하고 결과를 확인했습니다.
+- [ ] 필요한 경우 관련 문서를 수정했습니다.
 
-## AI disclosure
+## AI 사용 공개
 
-<!-- Write `Not used` if no AI was used. -->
+<!-- AI를 사용하지 않았다면 `사용하지 않음`이라고 작성해 주세요. -->
 
-- Tool and model:
-- Scope of assistance:
-- Human-reviewed or edited work:
+- 사용 도구 및 모델:
+- 도움받은 범위:
+- 사람이 검토하거나 수정한 내용:
 
-- [ ] This PR references an accepted issue.
-- [ ] I verified AI-assisted work in an environment I can access, if applicable.
+- [ ] 이 PR은 승인된 이슈를 참조합니다.
+- [ ] AI의 도움을 받은 작업을 직접 접근할 수 있는 환경에서 검증했습니다.

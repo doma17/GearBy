@@ -1,0 +1,95 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
+language: "ko-KR"
+tone_instructions: "간결하고 구체적으로 작성하고, 확인 가능한 결함과 회귀 위험을 우선하며 취향성 제안은 최소화하세요."
+early_access: false
+
+reviews:
+  profile: "chill"
+  request_changes_workflow: false
+  high_level_summary: true
+  high_level_summary_in_walkthrough: true
+  high_level_summary_instructions: |
+    한국어로 변경 목적과 사용자 영향을 먼저 요약하세요.
+    검증 명령 전체를 반복하지 말고 중요한 위험과 미검증 영역만 명시하세요.
+  review_status: true
+  review_details: false
+  collapse_walkthrough: true
+  changed_files_summary: false
+  sequence_diagrams: false
+  estimate_code_review_effort: false
+  assess_linked_issues: true
+  in_progress_fortune: false
+  poem: false
+  enable_prompt_for_ai_agents: true
+
+  pre_merge_checks:
+    docstrings:
+      mode: "warning"
+      threshold: 5
+
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    drafts: true
+    base_branches:
+      - ".*"
+
+  path_filters:
+    - "!frontend/src/generated/**"
+    - "!frontend/tsconfig.tsbuildinfo"
+
+  path_instructions:
+    - path: "backend/src/main/**/*.kt"
+      instructions: |
+        - Controller의 Request/Response, Service 입력의 Command/Query, Service 출력의 Result 경계를 확인하세요.
+        - Controller의 Repository 직접 접근과 JPA Entity의 API 노출을 지적하세요.
+        - Reader, Manager, Appender 등 구현 계층을 우회하는 데이터 접근을 확인하세요.
+        - ApiResponse 및 예외 처리 형식과 BaseEntity 감사 메타데이터 규칙을 확인하세요.
+
+    - path: "backend/src/test/**"
+      instructions: |
+        - 변경된 동작을 재현하는 테스트인지, 성공 경로뿐 아니라 오류와 경계 조건을 검증하는지 확인하세요.
+        - 영속성 및 통합 검증은 실제 Testcontainers 구성을 사용하고 테스트 태그와 Gradle 태스크 분리를 유지하세요.
+
+    - path: "frontend/**/*.{ts,tsx,mjs,css}"
+      instructions: |
+        - 지도와 목록 상태가 일치하며 지도 실패 시에도 목록을 사용할 수 있는지 확인하세요.
+        - 키보드 조작, 포커스 복귀, 의미 있는 레이블과 모바일 레이아웃 회귀를 확인하세요.
+        - API_BASE_URL의 서버 경계를 유지하고 비밀값을 브라우저 번들에 노출하지 마세요.
+        - 생성된 OpenAPI 타입과 ApiResponse 파서를 우회하는 임의 응답 형식을 지적하세요.
+
+    - path: "contracts/openapi.yaml"
+      instructions: |
+        - docs/SPEC.md를 제품 요구사항의 기준으로 삼아 계약 누락과 의미 불일치를 확인하세요.
+        - 성공 및 오류 응답이 공통 ApiResponse 구조를 따르고 생성 클라이언트와 호환되는지 확인하세요.
+
+    - path: "docs/**"
+      instructions: |
+        - docs/SPEC.md가 최상위 Source of Truth이며 하위 PRD, 기능 명세, 유저 플로우, 테스트 문서가 충돌하지 않는지 확인하세요.
+        - 한국 사용자 대상 P0 범위와 구현 상태를 혼동하거나 미구현 기능을 완료된 것처럼 표현하지 않는지 확인하세요.
+
+    - path: ".github/workflows/**"
+      instructions: |
+        - 최소 권한, 비밀값 노출, 10분 이하 timeout과 lint → test → build 의존성을 확인하세요.
+        - 경로 기반 생략이 필요한 검증을 우회하지 않는지, 사용 중인 Action 버전이 현재 런타임과 호환되는지 확인하세요.
+
+chat:
+  art: false
+  auto_reply: true
+
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - files: "CONTRIBUTING.md"
+        applyTo: "**/*"
+      - files: ".github/AI_POLICY.md"
+        applyTo: "**/*"
+
+code_generation:
+  docstrings:
+    language: "ko-KR"
+    path_instructions:
+      - path: "**/*.{kt,ts,tsx}"
+        instructions: "공개 경계나 비직관적인 동작만 한 문장으로 설명하고, 구현을 반복하거나 장황하게 쓰지 마세요."

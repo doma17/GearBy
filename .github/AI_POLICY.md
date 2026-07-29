@@ -91,19 +91,3 @@ But today, that reality depends on the driver of the AI.  And today, most
 drivers of AI are just not good enough.  So, until either the people get
 better, the AI gets better, or both, we have to have rules to protect
 maintainers.
-
-
-AI is welcome here
-------------------
-
-GearBy is written with plenty of AI assistance, and many maintainers embrace
-AI tools as a productive tool in their workflow.  As a project, we welcome
-AI as a tool!
-
-*Our reason for this policy is not due to an anti-AI stance*, but instead due
-to the number of highly unqualified people using AI.  It's the people, not
-the tools, that are the problem.
-
-We include this section to be transparent about the project's usage of AI for
-people who may disagree with it, and to address the misconception that this
-policy is anti-AI in nature.
