@@ -40,7 +40,7 @@ export const initialDiscoveryViewState: DiscoveryViewState = {
   sort: "name",
 };
 
-// The reducer owns ephemeral controls; fetched catalog data stays with its effects.
+/** Owns ephemeral controls while fetched catalog data stays with its effects. */
 export function discoveryViewReducer(state: DiscoveryViewState, action: DiscoveryViewAction): DiscoveryViewState {
   switch (action.type) {
     case "categoryToggled":
@@ -62,8 +62,10 @@ export function discoveryViewReducer(state: DiscoveryViewState, action: Discover
       return { ...state, activePanel: action.panel };
     case "queryChanged":
       return { ...state, queryDraft: action.query };
-    case "querySubmitted":
-      return { ...state, applyCorrection: true, query: state.queryDraft.trim() };
+    case "querySubmitted": {
+      const query = state.queryDraft.trim();
+      return { ...state, applyCorrection: query === state.query ? state.applyCorrection : true, query };
+    }
     case "selectedIdChanged":
       return { ...state, selectedId: action.selectedId };
     case "sortChanged":
@@ -75,6 +77,7 @@ export function discoveryViewReducer(state: DiscoveryViewState, action: Discover
   }
 }
 
+/** Converts discovery controls into the public store query contract. */
 export function storeSearchParams(state: Pick<DiscoveryViewState, "applyCorrection" | "bbox" | "near" | "query" | "selectedCategories" | "sort">): URLSearchParams {
   const parameters = new URLSearchParams({ sort: state.sort, limit: "100" });
   if (state.query.trim()) parameters.set("q", state.query.trim());

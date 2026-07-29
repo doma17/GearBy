@@ -71,6 +71,10 @@ class CatalogWorkflowIntegrationTest
             )
             jdbc.update("DELETE FROM store_categories WHERE store_id NOT IN (:seedIds)", mapOf("seedIds" to seedIds))
             jdbc.update("DELETE FROM stores WHERE id NOT IN (:seedIds)", mapOf("seedIds" to seedIds))
+            jdbc.update(
+                "UPDATE stores SET verified_at = updated_at WHERE id IN (:seedIds) AND status = 'PUBLISHED'",
+                mapOf("seedIds" to seedIds),
+            )
         }
 
         @Test

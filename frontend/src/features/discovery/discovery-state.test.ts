@@ -29,10 +29,12 @@ describe("discoveryViewReducer", () => {
 
   it("opts out of correction for rollback and resets for a newly submitted query", () => {
     const rolledBack = discoveryViewReducer(initialDiscoveryViewState, { type: "correctionRolledBack", query: "trail" });
+    const resubmitted = discoveryViewReducer(rolledBack, { type: "querySubmitted" });
     const typed = discoveryViewReducer(rolledBack, { type: "queryChanged", query: "tent" });
     const submitted = discoveryViewReducer(typed, { type: "querySubmitted" });
 
     expect(storeSearchParams(rolledBack).get("applyCorrection")).toBe("false");
+    expect(resubmitted).toMatchObject({ query: "trail", applyCorrection: false });
     expect(typed.query).toBe("trail");
     expect(submitted).toMatchObject({ query: "tent", applyCorrection: true });
     expect(storeSearchParams(submitted).has("applyCorrection")).toBe(false);

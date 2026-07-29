@@ -221,7 +221,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Publish a reviewed store */
+        /**
+         * Publish a reviewed store or re-verify a published store
+         * @description Repeating this operation for a published store records a new administrator verification time.
+         */
         post: operations["publishAdminStore"];
         delete?: never;
         options?: never;

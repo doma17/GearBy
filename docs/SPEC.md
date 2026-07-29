@@ -121,6 +121,7 @@ API 계약: [OpenAPI](../contracts/openapi.yaml)
 - P2 `ProductRecommendation`은 deferred 상태이므로 자동화 대상이 아니다.
 
 ### 테스트 ID
+
 | ID | 계층 | 검증 대상 |
 | --- | --- | --- |
 | DOC-01 | 문서 | `SPEC.md`와 세 상세 문서만 제품 요구사항의 Source of Truth이며 파생 문서와 구현은 그 우선순위를 침범하지 않는다. |
@@ -145,6 +146,7 @@ API 계약: [OpenAPI](../contracts/openapi.yaml)
 ## 7. 요구사항 추적성
 
 ### 매트릭스
+
 | 우선순위 | 요구사항 | 흐름 | 계약 경계 | 테스트 ID |
 | --- | --- | --- | --- | --- |
 | P0 first MVP | CUR-010: 전국 범위 검수 매장 발견, 복수 카테고리, 지도/목록/상세/길찾기, 피드백·관리자 운영 | FLOW-CUR-010, FLOW-FDB-010, FLOW-OPS-010 | 기존 store·feedback·admin API | DOC-01, API-CUR-01, INT-CUR-01, INT-CUR-02, UI-CUR-01, UI-OPS-01, E2E-CUR-01 |
@@ -152,6 +154,7 @@ API 계약: [OpenAPI](../contracts/openapi.yaml)
 | P2 | ProductRecommendation | deferred | Product/ProductVariant/price/availability/checkout 계약군 없음 | deferred |
 
 ### 역추적
+
 | 테스트 ID | 연결 |
 | --- | --- |
 | DOC-01 | P0/P1 공통 Source of Truth 체계와 파생 문서 우선순위 |

@@ -24,6 +24,7 @@ import java.time.Clock
 import java.time.Instant
 import java.util.UUID
 
+/** Validates catalog commands and persists their state changes. */
 @Component
 class CatalogManager(
     private val reader: CatalogReader,
@@ -82,6 +83,7 @@ class CatalogManager(
         return reader.findStore(id)
     }
 
+    /** A repeated publish records an administrator re-verification. */
     fun transitionStore(
         id: UUID,
         target: StoreStatus,

@@ -38,6 +38,7 @@ import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.math.sqrt
 
+/** Combines catalog data into application-level results. */
 @Service
 class CatalogService(
     private val reader: CatalogReader,

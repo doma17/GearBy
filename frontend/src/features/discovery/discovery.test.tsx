@@ -163,6 +163,35 @@ describe("Discovery", () => {
     ));
   });
 
+  it("removes stale correction guidance when the next search fails", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/categories")) return Promise.resolve(success([]));
+      if (url.includes("q=trail")) {
+        return Promise.resolve(success({ items: [store], search: { originalQuery: "trail", appliedQuery: "trek", correction: "trek" } }));
+      }
+      if (url.includes("q=broken")) return Promise.reject(new Error("network unavailable"));
+      if (url.includes("/stores?")) return Promise.resolve(success({ items: [store] }));
+      return Promise.reject(new Error(`Unexpected request: ${url}`));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    render(<Discovery apiBaseUrl="http://api.example" naverMapClientId="" />);
+    const input = screen.getByRole("textbox", { name: "매장 또는 활동 검색" });
+    await user.type(input, "trail");
+    await user.click(screen.getByRole("button", { name: "검색" }));
+    expect(await screen.findByRole("button", { name: "원문으로 검색" })).toBeTruthy();
+
+    await user.clear(input);
+    await user.type(input, "broken");
+    await user.click(screen.getByRole("button", { name: "검색" }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain("매장 정보를 불러오지 못했습니다.");
+    expect(screen.queryByRole("button", { name: "원문으로 검색" })).toBeNull();
+    expect(screen.getByText("Trail House")).toBeTruthy();
+  });
+
   it("waits for explicit area search before requesting pending map bounds", async () => {
     let idleListener: (() => void) | undefined;
     class MockMap {

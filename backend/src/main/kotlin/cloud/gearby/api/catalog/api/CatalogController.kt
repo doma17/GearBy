@@ -26,6 +26,7 @@ import org.springframework.web.server.ResponseStatusException
 import java.math.BigDecimal
 import java.util.UUID
 
+/** Exposes the public catalog HTTP contract. */
 @RestController
 @RequestMapping("/api/v1")
 class CatalogController(

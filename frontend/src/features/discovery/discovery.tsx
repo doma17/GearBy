@@ -56,6 +56,7 @@ function loadNaverMaps(clientId: string) {
   });
 }
 
+/** Keeps the public map, result list, and store detail in sync. */
 export default function Discovery({ apiBaseUrl, naverMapClientId }: { apiBaseUrl: string; naverMapClientId: string }) {
   const api = `${apiBaseUrl.replace(/\/$/, "")}/api/v1`;
   const mapElement = useRef<HTMLDivElement>(null);
@@ -87,7 +88,7 @@ export default function Discovery({ apiBaseUrl, naverMapClientId }: { apiBaseUrl
     fetch(`${api}/stores?${searchParameters}`, { signal: controller.signal })
       .then((response) => readApiResponse<StorePage>(response))
       .then((page) => { setStores(page.items); setSearch(page.search); setCompletedRequest(requestKey); dispatch({ type: "errorChanged", error: "" }); })
-      .catch((reason: Error) => { if (reason.name !== "AbortError") { setCompletedRequest(requestKey); dispatch({ type: "errorChanged", error: "매장 정보를 불러오지 못했습니다." }); } });
+      .catch((reason: Error) => { if (reason.name !== "AbortError") { setSearch(undefined); setCompletedRequest(requestKey); dispatch({ type: "errorChanged", error: "매장 정보를 불러오지 못했습니다." }); } });
     return () => controller.abort();
   }, [api, requestKey, searchParameters]);
 

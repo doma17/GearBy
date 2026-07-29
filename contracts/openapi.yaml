@@ -167,7 +167,8 @@ paths:
   /admin/stores/{storeId}/publish:
     post:
       operationId: publishAdminStore
-      summary: Publish a reviewed store
+      summary: Publish a reviewed store or re-verify a published store
+      description: Repeating this operation for a published store records a new administrator verification time.
       security: [{ adminOidc: [ADMIN] }]
       parameters: [{ $ref: '#/components/parameters/StoreId' }]
       responses:
@@ -683,11 +684,10 @@ components:
         hours: { type: string }
         description: { type: string }
         status: { type: string, enum: [DRAFT, IN_REVIEW, PUBLISHED, REJECTED] }
-        verifiedAt: { type: string, format: date-time, nullable: true }
+        verifiedAt: { type: [string, 'null'], format: date-time }
         informationStatus:
-          type: string
-          enum: [VERIFIED, REVIEW_DUE]
-          nullable: true
+          type: [string, 'null']
+          enum: [VERIFIED, REVIEW_DUE, null]
     CategoryHealth:
       type: object
       required: [category, publishedStoreCount, storesByLifecycle, openReviewFlagCount]

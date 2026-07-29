@@ -23,6 +23,11 @@ reviews:
   poem: false
   enable_prompt_for_ai_agents: true
 
+  pre_merge_checks:
+    docstrings:
+      mode: "warning"
+      threshold: 5
+
   auto_review:
     enabled: true
     auto_incremental_review: true
@@ -81,3 +86,10 @@ knowledge_base:
         applyTo: "**/*"
       - files: ".github/AI_POLICY.md"
         applyTo: "**/*"
+
+code_generation:
+  docstrings:
+    language: "ko-KR"
+    path_instructions:
+      - path: "**/*.{kt,ts,tsx}"
+        instructions: "공개 경계나 비직관적인 동작만 한 문장으로 설명하고, 구현을 반복하거나 장황하게 쓰지 마세요."
