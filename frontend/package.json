@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "vitest run",
+    "test": "node --test $(find src -name '*.test.mjs') && vitest run",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"
   },
