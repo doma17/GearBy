@@ -177,6 +177,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/auth/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the current administrator session and CSRF token */
+        get: operations["getAdminSession"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start the single administrator browser session */
+        post: operations["loginAdminSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** End the current administrator browser session */
+        post: operations["logoutAdminSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/stores": {
         parameters: {
             query?: never;
@@ -407,6 +458,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/candidate-ingestion/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List durable candidate ingestion runs */
+        get: operations["listCandidateIngestionRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/candidate-ingestion/runs/{runId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get one candidate ingestion run summary */
+        get: operations["getCandidateIngestionRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/candidate-ingestion/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List candidate ingestion review items */
+        get: operations["listCandidateIngestionItems"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/candidate-ingestion/items/{itemId}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve an ambiguous or quarantined candidate item
+         * @description LINK_EXISTING links an existing store without mutating it. CREATE_DRAFT creates a DRAFT store only. This operation never publishes stores.
+         */
+        post: operations["resolveCandidateIngestionItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -422,6 +544,38 @@ export interface components {
             /** @enum {string} */
             code: "INVALID_REQUEST" | "UNAUTHORIZED" | "FORBIDDEN" | "NOT_FOUND" | "CONFLICT" | "INTERNAL_ERROR";
             message: string;
+        };
+        ListCandidateIngestionRunsSuccessEnvelope: {
+            /** @constant */
+            success: true;
+            /** Format: date-time */
+            timestamp: string;
+            data: components["schemas"]["CandidateRunPage"];
+            error: null;
+        };
+        GetCandidateIngestionRunSuccessEnvelope: {
+            /** @constant */
+            success: true;
+            /** Format: date-time */
+            timestamp: string;
+            data: components["schemas"]["CandidateRun"];
+            error: null;
+        };
+        ListCandidateIngestionItemsSuccessEnvelope: {
+            /** @constant */
+            success: true;
+            /** Format: date-time */
+            timestamp: string;
+            data: components["schemas"]["CandidateItemPage"];
+            error: null;
+        };
+        ResolveCandidateIngestionItemSuccessEnvelope: {
+            /** @constant */
+            success: true;
+            /** Format: date-time */
+            timestamp: string;
+            data: components["schemas"]["CandidateResolution"];
+            error: null;
         };
         CreateRecommendationSessionSuccessEnvelope: {
             /** @constant */
@@ -515,6 +669,17 @@ export interface components {
         RecommendationFeedbackReceipt: {
             /** @enum {string} */
             status: "ACCEPTED";
+        };
+        AdminLoginInput: {
+            /** Format: email */
+            email: string;
+            password: string;
+        };
+        AdminSession: {
+            authenticated: boolean;
+            /** Format: email */
+            email?: string | null;
+            csrfToken: string;
         };
         Health: {
             /** @enum {string} */
@@ -650,6 +815,104 @@ export interface components {
             /** @enum {string|null} */
             informationStatus?: "VERIFIED" | "REVIEW_DUE" | null;
         };
+        /** @enum {string} */
+        CandidateIngestionRunStatus: "RUNNING" | "PARTIAL" | "FAILED" | "COMPLETED";
+        /** @enum {string} */
+        CandidateMatchStatus: "NOT_EVALUATED" | "NO_MATCH" | "EXACT_PROVIDER_RECORD" | "EXACT_NAME_ADDRESS" | "EXACT_NAME_COORDINATES" | "AMBIGUOUS" | "RESOLVED_EXISTING" | "RESOLVED_DRAFT";
+        /** @enum {string} */
+        CandidateItemOutcome: "DRAFT_CREATED" | "MATCHED_EXISTING" | "DUPLICATE_SKIPPED" | "QUARANTINED" | "BLOCKED_BY_GATE" | "REJECTED" | "ITEM_FAILED" | "RESOLVED";
+        CandidateResolutionInput: components["schemas"]["CandidateLinkExistingInput"] | components["schemas"]["CandidateCreateDraftInput"];
+        CandidateLinkExistingInput: {
+            /** @constant */
+            resolutionType: "LINK_EXISTING";
+            /** Format: uuid */
+            storeId: string;
+        };
+        CandidateCreateDraftInput: {
+            /** @constant */
+            resolutionType: "CREATE_DRAFT";
+            name: string;
+            address: string;
+            coordinates: components["schemas"]["Coordinates"];
+            categories: components["schemas"]["CategorySlug"][];
+            phone?: string;
+            hours?: string;
+            description?: string;
+        };
+        CandidateRun: {
+            /** Format: uuid */
+            id: string;
+            provider: string;
+            idempotencyKey: string;
+            requestedBy: string;
+            /** Format: date-time */
+            requestedAt: string;
+            /** Format: date-time */
+            startedAt?: string | null;
+            /** Format: date-time */
+            finishedAt?: string | null;
+            status: components["schemas"]["CandidateIngestionRunStatus"];
+            gateVersion: string;
+            seenCount: number;
+            acceptedCount: number;
+            dedupedCount: number;
+            quarantinedCount: number;
+            rejectedCount: number;
+            failedCount: number;
+            errorCode?: string | null;
+            errorSummary?: string | null;
+        };
+        CandidateItem: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            firstSeenRunId: string;
+            /** Format: uuid */
+            lastSeenRunId: string;
+            provider: string;
+            providerRecordId?: string | null;
+            sourceUrl: string;
+            normalizedName: string;
+            roadAddress?: string | null;
+            roundedLatitude?: number | null;
+            roundedLongitude?: number | null;
+            phone?: string | null;
+            industryCode?: string | null;
+            latestOutcome: components["schemas"]["CandidateItemOutcome"];
+            latestMatchStatus: components["schemas"]["CandidateMatchStatus"];
+            /** Format: uuid */
+            resolvedStoreId?: string | null;
+            /** @enum {string|null} */
+            resolvedStoreStatus?: "DRAFT" | "IN_REVIEW" | "PUBLISHED" | "REJECTED" | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        CandidateRunPage: {
+            items: components["schemas"]["CandidateRun"][];
+            page: number;
+            size: number;
+            total: number;
+        };
+        CandidateItemPage: {
+            items: components["schemas"]["CandidateItem"][];
+            page: number;
+            size: number;
+            total: number;
+        };
+        CandidateResolution: {
+            /** Format: uuid */
+            itemId: string;
+            /** @enum {string} */
+            outcome: "RESOLVED";
+            /** @enum {string} */
+            matchStatus: "RESOLVED_EXISTING" | "RESOLVED_DRAFT";
+            /** Format: uuid */
+            resolvedStoreId: string;
+            /** @enum {string} */
+            resolvedStoreStatus: "DRAFT" | "IN_REVIEW" | "PUBLISHED" | "REJECTED";
+        };
         CategoryHealth: {
             category: components["schemas"]["CategorySlug"];
             publishedStoreCount: number;
@@ -719,6 +982,42 @@ export interface components {
             };
             content: {
                 "application/json": components["schemas"]["ApiResponse"];
+            };
+        };
+        /** @description Candidate ingestion run page response envelope. */
+        ListCandidateIngestionRunsSuccess: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ListCandidateIngestionRunsSuccessEnvelope"];
+            };
+        };
+        /** @description Candidate ingestion run response envelope. */
+        GetCandidateIngestionRunSuccess: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["GetCandidateIngestionRunSuccessEnvelope"];
+            };
+        };
+        /** @description Candidate ingestion item page response envelope. */
+        ListCandidateIngestionItemsSuccess: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ListCandidateIngestionItemsSuccessEnvelope"];
+            };
+        };
+        /** @description Candidate ingestion resolution response envelope. */
+        ResolveCandidateIngestionItemSuccess: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ResolveCandidateIngestionItemSuccessEnvelope"];
             };
         };
         /** @description Created recommendation session response envelope. */
@@ -953,6 +1252,50 @@ export interface operations {
             202: components["responses"]["SubmitRecommendationSessionFeedbackSuccess"];
             400: components["responses"]["ApiError"];
             404: components["responses"]["ApiError"];
+        };
+    };
+    getAdminSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ApiResponse"];
+        };
+    };
+    loginAdminSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminLoginInput"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ApiResponse"];
+            401: components["responses"]["ApiError"];
+        };
+    };
+    logoutAdminSession: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-XSRF-TOKEN": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiError"];
         };
     };
     listAdminStores: {
@@ -1257,6 +1600,87 @@ export interface operations {
             200: components["responses"]["ApiResponse"];
             401: components["responses"]["ApiError"];
             403: components["responses"]["ApiError"];
+        };
+    };
+    listCandidateIngestionRuns: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+                status?: components["schemas"]["CandidateIngestionRunStatus"];
+                provider?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ListCandidateIngestionRunsSuccess"];
+            400: components["responses"]["ApiError"];
+            401: components["responses"]["ApiError"];
+            403: components["responses"]["ApiError"];
+        };
+    };
+    getCandidateIngestionRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["GetCandidateIngestionRunSuccess"];
+            401: components["responses"]["ApiError"];
+            403: components["responses"]["ApiError"];
+            404: components["responses"]["ApiError"];
+        };
+    };
+    listCandidateIngestionItems: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+                runId?: string;
+                latestOutcome?: components["schemas"]["CandidateItemOutcome"];
+                latestMatchStatus?: components["schemas"]["CandidateMatchStatus"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ListCandidateIngestionItemsSuccess"];
+            400: components["responses"]["ApiError"];
+            401: components["responses"]["ApiError"];
+            403: components["responses"]["ApiError"];
+        };
+    };
+    resolveCandidateIngestionItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                itemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CandidateResolutionInput"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ResolveCandidateIngestionItemSuccess"];
+            400: components["responses"]["ApiError"];
+            401: components["responses"]["ApiError"];
+            403: components["responses"]["ApiError"];
+            404: components["responses"]["ApiError"];
+            409: components["responses"]["ApiError"];
         };
     };
 }

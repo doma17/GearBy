@@ -17,6 +17,21 @@ gearby:
     # Admin APIs fail closed until an issuer and audience are configured.
     issuer-uri: ${OIDC_ISSUER_URI:}
     audience: ${OIDC_AUDIENCE:}
+  admin:
+    # Leave blank to fail closed; configure these only in the private runtime environment.
+    email: ${ADMIN_EMAIL:}
+    password: ${ADMIN_PASSWORD:}
+  ingestion:
+    enabled: ${CANDIDATE_INGESTION_ENABLED:false}
+    provider: ${CANDIDATE_INGESTION_PROVIDER:}
+    run-key: ${CANDIDATE_INGESTION_RUN_KEY:}
+    allowlist-version: ${CANDIDATE_INGESTION_ALLOWLIST_VERSION:}
+    industry-codes: ${CANDIDATE_INGESTION_INDUSTRY_CODES:}
+    page-size: ${CANDIDATE_INGESTION_PAGE_SIZE:100}
+    max-pages: ${CANDIDATE_INGESTION_MAX_PAGES:10}
+    semas:
+      service-key: ${SEMAS_SERVICE_KEY:}
+      base-url: ${SEMAS_BASE_URL:https://apis.data.go.kr}
 management:
   endpoints:
     web:
