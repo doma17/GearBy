@@ -16,3 +16,7 @@ test("public discovery keeps its adaptive accessibility contract", () => {
   assert.match(css, /\.places-content:has\(\.place-detail\)[^{]*\.store-list[^}]*display: none/);
   assert.match(css, /\.workspace-notice \{ top: 10\.75rem; max-width: calc\(100% - 28rem\)/);
 });
+
+test("the map fallback does not imply a real hiking route", () => {
+  assert.doesNotMatch(css, /\.map-grid[^}]*linear-gradient/);
+});
