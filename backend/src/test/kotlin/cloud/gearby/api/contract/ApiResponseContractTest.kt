@@ -93,6 +93,81 @@ class ApiResponseContractTest
             assertEquals(listOf("string", "null"), adminProperties.node("informationStatus")["type"])
             assertEquals(listOf("VERIFIED", "REVIEW_DUE", null), adminProperties.node("informationStatus")["enum"])
         }
+
+        @Test
+        fun `OpenAPI documents candidate ingestion admin paths and exact enums`() {
+            val openApi = Yaml().load<Map<String, Any?>>(Path.of("..", "contracts", "openapi.yaml").readText())
+            val paths = openApi.node("paths")
+            val schemas = openApi.node("components", "schemas")
+
+            assertEquals(true, "/admin/candidate-ingestion/runs" in paths)
+            assertEquals(true, "/admin/candidate-ingestion/runs/{runId}" in paths)
+            assertEquals(true, "/admin/candidate-ingestion/items" in paths)
+            assertEquals(true, "/admin/candidate-ingestion/items/{itemId}/resolve" in paths)
+            assertEquals(
+                "#/components/responses/ListCandidateIngestionRunsSuccess",
+                paths.node("/admin/candidate-ingestion/runs", "get", "responses", "200")["\$ref"],
+            )
+            assertEquals(
+                "#/components/responses/GetCandidateIngestionRunSuccess",
+                paths.node("/admin/candidate-ingestion/runs/{runId}", "get", "responses", "200")["\$ref"],
+            )
+            assertEquals(
+                "#/components/responses/ListCandidateIngestionItemsSuccess",
+                paths.node("/admin/candidate-ingestion/items", "get", "responses", "200")["\$ref"],
+            )
+            assertEquals(
+                "#/components/responses/ResolveCandidateIngestionItemSuccess",
+                paths.node("/admin/candidate-ingestion/items/{itemId}/resolve", "post", "responses", "200")["\$ref"],
+            )
+            assertEquals(
+                "#/components/schemas/CandidateRun",
+                schemas.node("GetCandidateIngestionRunSuccessEnvelope", "properties", "data")["\$ref"],
+            )
+            assertEquals(listOf("RUNNING", "PARTIAL", "FAILED", "COMPLETED"), schemas.node("CandidateIngestionRunStatus")["enum"])
+            assertEquals(
+                listOf(
+                    "NOT_EVALUATED",
+                    "NO_MATCH",
+                    "EXACT_PROVIDER_RECORD",
+                    "EXACT_NAME_ADDRESS",
+                    "EXACT_NAME_COORDINATES",
+                    "AMBIGUOUS",
+                    "RESOLVED_EXISTING",
+                    "RESOLVED_DRAFT",
+                ),
+                schemas.node("CandidateMatchStatus")["enum"],
+            )
+            assertEquals(
+                listOf(
+                    "DRAFT_CREATED",
+                    "MATCHED_EXISTING",
+                    "DUPLICATE_SKIPPED",
+                    "QUARANTINED",
+                    "BLOCKED_BY_GATE",
+                    "REJECTED",
+                    "ITEM_FAILED",
+                    "RESOLVED",
+                ),
+                schemas.node("CandidateItemOutcome")["enum"],
+            )
+
+            assertEquals(
+                listOf(
+                    "id",
+                    "firstSeenRunId",
+                    "lastSeenRunId",
+                    "provider",
+                    "sourceUrl",
+                    "normalizedName",
+                    "latestOutcome",
+                    "latestMatchStatus",
+                    "createdAt",
+                    "updatedAt",
+                ),
+                schemas.node("CandidateItem")["required"],
+            )
+        }
     }
 
 @Suppress("UNCHECKED_CAST")

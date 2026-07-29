@@ -3,15 +3,11 @@ package cloud.gearby.api.support
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.testcontainers.containers.PostgreSQLContainer
-import org.testcontainers.junit.jupiter.Container
-import org.testcontainers.junit.jupiter.Testcontainers
 
-@Testcontainers(disabledWithoutDocker = true)
 abstract class PostgresIntegrationTest {
     companion object {
-        @Container
         @JvmStatic
-        val postgres = PostgreSQLContainer("postgres:16-alpine")
+        val postgres: PostgreSQLContainer<*> = PostgreSQLContainer("postgres:16-alpine").apply { start() }
 
         @DynamicPropertySource
         @JvmStatic
