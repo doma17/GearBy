@@ -6,7 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 data class CorsProperties(
     val allowedOrigins: List<String> = listOf("http://localhost:3000"),
     val allowedMethods: List<String> = listOf("GET", "POST", "PATCH", "DELETE", "OPTIONS"),
-    val allowedHeaders: List<String> = listOf("Authorization", "Content-Type", "Accept"),
+    val allowedHeaders: List<String> = listOf("Authorization", "Content-Type", "Accept", "X-XSRF-TOKEN"),
     val allowCredentials: Boolean = true,
     val maxAge: Long = 3600,
 ) {

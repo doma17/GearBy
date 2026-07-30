@@ -121,11 +121,39 @@ paths:
           $ref: '#/components/responses/SubmitRecommendationSessionFeedbackSuccess'
         '400': { $ref: '#/components/responses/ApiError' }
         '404': { $ref: '#/components/responses/ApiError' }
+  /admin/auth/session:
+    get:
+      operationId: getAdminSession
+      summary: Get the current administrator session and CSRF token
+      responses:
+        '200': { $ref: '#/components/responses/GetAdminSessionSuccess' }
+  /admin/auth/login:
+    post:
+      operationId: loginAdminSession
+      summary: Start the single administrator browser session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminLoginInput' }
+      responses:
+        '200': { $ref: '#/components/responses/GetAdminSessionSuccess' }
+        '401': { $ref: '#/components/responses/ApiError' }
+  /admin/auth/logout:
+    post:
+      operationId: logoutAdminSession
+      summary: End the current administrator browser session
+      security: [{ adminSession: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/CsrfToken' }
+      responses:
+        '200': { $ref: '#/components/responses/GetAdminSessionSuccess' }
+        '403': { $ref: '#/components/responses/ApiError' }
   /admin/stores:
     get:
       operationId: listAdminStores
       summary: List stores across review states
-      security: [{ adminOidc: [ADMIN] }]
+      security: [{ adminSession: [] }, { adminOidc: [ADMIN] }]
       responses:
         '200':
           $ref: '#/components/responses/ApiResponse'
@@ -134,7 +162,7 @@ paths:
     post:
       operationId: createAdminStore
       summary: Create a draft store for review
-      security: [{ adminOidc: [ADMIN] }]
+      security: [{ adminSession: [] }, { adminOidc: [ADMIN] }]
       requestBody:
         required: true
         content:
@@ -150,7 +178,7 @@ paths:
     patch:
       operationId: updateAdminStore
       summary: Update a draft or review store
-      security: [{ adminOidc: [ADMIN] }]
+      security: [{ adminSession: [] }, { adminOidc: [ADMIN] }]
       parameters: [{ $ref: '#/components/parameters/StoreId' }]
       requestBody:
         required: true
@@ -169,7 +197,7 @@ paths:
       operationId: publishAdminStore
       summary: Publish a reviewed store or re-verify a published store
       description: Repeating this operation for a published store records a new administrator verification time.
-      security: [{ adminOidc: [ADMIN] }]
+      security: [{ adminSession: [] }, { adminOidc: [ADMIN] }]
       parameters: [{ $ref: '#/components/parameters/StoreId' }]
       responses:
         '200':
@@ -182,7 +210,7 @@ paths:
     post:
       operationId: reviewAdminStore
       summary: Submit a draft or rejected store for review
-      security: [{ adminOidc: [ADMIN] }]
+      security: [{ adminSession: [] }, { adminOidc: [ADMIN] }]
       parameters: [{ $ref: '#/components/parameters/StoreId' }]
       responses:
         '200':
@@ -195,7 +223,7 @@ paths:
     post:
       operationId: rejectAdminStore
       summary: Reject a reviewed store back to an editable state
-      security: [{ adminOidc: [ADMIN] }]
+      security: [{ adminSession: [] }, { adminOidc: [ADMIN] }]
       parameters: [{ $ref: '#/components/parameters/StoreId' }]
       requestBody:
         required: false
@@ -211,7 +239,7 @@ paths:
     get:
       operationId: listCorrectionRules
       summary: List explicit correction rules
-      security: [{ adminOidc: [ADMIN] }]
+      security: [{ adminSession: [] }, { adminOidc: [ADMIN] }]
       responses:
         '200':
           $ref: '#/components/responses/ApiResponse'
@@ -220,7 +248,7 @@ paths:
     post:
       operationId: createCorrectionRule
       summary: Create an explicit correction rule
-      security: [{ adminOidc: [ADMIN] }]
+      security: [{ adminSession: [] }, { adminOidc: [ADMIN] }]
       requestBody:
         required: true
         content:
@@ -241,7 +269,7 @@ paths:
     patch:
       operationId: updateCorrectionRule
       summary: Update an explicit correction rule
-      security: [{ adminOidc: [ADMIN] }]
+      security: [{ adminSession: [] }, { adminOidc: [ADMIN] }]
       requestBody:
         required: true
         content:
@@ -257,7 +285,7 @@ paths:
     delete:
       operationId: deleteCorrectionRule
       summary: Delete an explicit correction rule
-      security: [{ adminOidc: [ADMIN] }]
+      security: [{ adminSession: [] }, { adminOidc: [ADMIN] }]
       responses:
         '200':
           $ref: '#/components/responses/ApiResponse'
@@ -268,7 +296,7 @@ paths:
     get:
       operationId: listAdminFeedback
       summary: List feedback review queue
-      security: [{ adminOidc: [ADMIN] }]
+      security: [{ adminSession: [] }, { adminOidc: [ADMIN] }]
       responses:
         '200':
           $ref: '#/components/responses/ApiResponse'
@@ -278,7 +306,7 @@ paths:
     patch:
       operationId: resolveAdminFeedback
       summary: Resolve or reject feedback and record its notification state
-      security: [{ adminOidc: [ADMIN] }]
+      security: [{ adminSession: [] }, { adminOidc: [ADMIN] }]
       parameters:
         - name: feedbackId
           in: path
@@ -300,7 +328,7 @@ paths:
     get:
       operationId: getCategoryHealth
       summary: List category counts and open review flags
-      security: [{ adminOidc: [ADMIN] }]
+      security: [{ adminSession: [] }, { adminOidc: [ADMIN] }]
       responses:
         '200':
           $ref: '#/components/responses/ApiResponse'
@@ -310,7 +338,7 @@ paths:
     get:
       operationId: listCategoryReviewFlags
       summary: List category review flags
-      security: [{ adminOidc: [ADMIN] }]
+      security: [{ adminSession: [] }, { adminOidc: [ADMIN] }]
       responses:
         '200':
           $ref: '#/components/responses/ApiResponse'
@@ -319,7 +347,7 @@ paths:
     post:
       operationId: createCategoryReviewFlag
       summary: Create a manual category review flag
-      security: [{ adminOidc: [ADMIN] }]
+      security: [{ adminSession: [] }, { adminOidc: [ADMIN] }]
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/ManualCategoryReviewFlagInput' } } }
@@ -333,7 +361,7 @@ paths:
     patch:
       operationId: updateCategoryReviewFlag
       summary: Assign or resolve a category review flag
-      security: [{ adminOidc: [ADMIN] }]
+      security: [{ adminSession: [] }, { adminOidc: [ADMIN] }]
       parameters:
         - name: flagId
           in: path
@@ -353,14 +381,83 @@ paths:
     get:
       operationId: getAdminDashboard
       summary: Get operational counts and category-health flags
-      security: [{ adminOidc: [ADMIN] }]
+      security: [{ adminSession: [] }, { adminOidc: [ADMIN] }]
       responses:
         '200':
           $ref: '#/components/responses/ApiResponse'
         '401': { $ref: '#/components/responses/ApiError' }
         '403': { $ref: '#/components/responses/ApiError' }
+  /admin/candidate-ingestion/runs:
+    get:
+      operationId: listCandidateIngestionRuns
+      summary: List durable candidate ingestion runs
+      security: [{ adminSession: [] }, { adminOidc: [ADMIN] }]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/CandidateIngestionRunStatus' } }
+        - { name: provider, in: query, schema: { type: string } }
+      responses:
+        '200': { $ref: '#/components/responses/ListCandidateIngestionRunsSuccess' }
+        '400': { $ref: '#/components/responses/ApiError' }
+        '401': { $ref: '#/components/responses/ApiError' }
+        '403': { $ref: '#/components/responses/ApiError' }
+  /admin/candidate-ingestion/runs/{runId}:
+    get:
+      operationId: getCandidateIngestionRun
+      summary: Get one candidate ingestion run summary
+      security: [{ adminSession: [] }, { adminOidc: [ADMIN] }]
+      parameters:
+        - { name: runId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { $ref: '#/components/responses/GetCandidateIngestionRunSuccess' }
+        '401': { $ref: '#/components/responses/ApiError' }
+        '403': { $ref: '#/components/responses/ApiError' }
+        '404': { $ref: '#/components/responses/ApiError' }
+  /admin/candidate-ingestion/items:
+    get:
+      operationId: listCandidateIngestionItems
+      summary: List candidate ingestion review items
+      security: [{ adminSession: [] }, { adminOidc: [ADMIN] }]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: runId, in: query, schema: { type: string, format: uuid } }
+        - { name: latestOutcome, in: query, schema: { $ref: '#/components/schemas/CandidateItemOutcome' } }
+        - { name: latestMatchStatus, in: query, schema: { $ref: '#/components/schemas/CandidateMatchStatus' } }
+      responses:
+        '200': { $ref: '#/components/responses/ListCandidateIngestionItemsSuccess' }
+        '400': { $ref: '#/components/responses/ApiError' }
+        '401': { $ref: '#/components/responses/ApiError' }
+        '403': { $ref: '#/components/responses/ApiError' }
+  /admin/candidate-ingestion/items/{itemId}/resolve:
+    post:
+      operationId: resolveCandidateIngestionItem
+      summary: Resolve an ambiguous or quarantined candidate item
+      description: LINK_EXISTING links an existing store without mutating it. CREATE_DRAFT creates a DRAFT store only. This operation never publishes stores.
+      security: [{ adminSession: [] }, { adminOidc: [ADMIN] }]
+      parameters:
+        - { name: itemId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { $ref: '#/components/parameters/CsrfToken' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CandidateResolutionInput' }
+      responses:
+        '200': { $ref: '#/components/responses/ResolveCandidateIngestionItemSuccess' }
+        '400': { $ref: '#/components/responses/ApiError' }
+        '401': { $ref: '#/components/responses/ApiError' }
+        '403': { $ref: '#/components/responses/ApiError' }
+        '404': { $ref: '#/components/responses/ApiError' }
+        '409': { $ref: '#/components/responses/ApiError' }
 components:
   securitySchemes:
+    adminSession:
+      type: apiKey
+      in: cookie
+      name: JSESSIONID
+      description: Single administrator browser session. Unsafe requests also require the X-XSRF-TOKEN header returned by `/admin/auth/session`.
     adminOidc:
       type: oauth2
       description: Invite-only administrator authentication; public administrator signup is not provided.
@@ -382,6 +479,11 @@ components:
         type: array
         uniqueItems: true
         items: { $ref: '#/components/schemas/CategorySlug' }
+    CsrfToken:
+      name: X-XSRF-TOKEN
+      in: header
+      required: true
+      schema: { type: string }
     Query: { name: q, in: query, schema: { type: string, maxLength: 120 } }
     ApplyCorrection:
       name: applyCorrection
@@ -404,6 +506,31 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ApiResponse' }
+    GetAdminSessionSuccess:
+      description: Administrator session response envelope.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/GetAdminSessionSuccessEnvelope' }
+    ListCandidateIngestionRunsSuccess:
+      description: Candidate ingestion run page response envelope.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ListCandidateIngestionRunsSuccessEnvelope' }
+    GetCandidateIngestionRunSuccess:
+      description: Candidate ingestion run response envelope.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/GetCandidateIngestionRunSuccessEnvelope' }
+    ListCandidateIngestionItemsSuccess:
+      description: Candidate ingestion item page response envelope.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ListCandidateIngestionItemsSuccessEnvelope' }
+    ResolveCandidateIngestionItemSuccess:
+      description: Candidate ingestion resolution response envelope.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ResolveCandidateIngestionItemSuccessEnvelope' }
     CreateRecommendationSessionSuccess:
       description: Created recommendation session response envelope.
       content:
@@ -447,6 +574,46 @@ components:
       properties:
         code: { type: string, enum: [INVALID_REQUEST, UNAUTHORIZED, FORBIDDEN, NOT_FOUND, CONFLICT, INTERNAL_ERROR] }
         message: { type: string }
+    GetAdminSessionSuccessEnvelope:
+      type: object
+      required: [success, timestamp, data, error]
+      properties:
+        success: { type: boolean, const: true }
+        timestamp: { type: string, format: date-time }
+        data: { $ref: '#/components/schemas/AdminSession' }
+        error: { type: 'null' }
+    ListCandidateIngestionRunsSuccessEnvelope:
+      type: object
+      required: [success, timestamp, data, error]
+      properties:
+        success: { type: boolean, const: true }
+        timestamp: { type: string, format: date-time }
+        data: { $ref: '#/components/schemas/CandidateRunPage' }
+        error: { type: 'null' }
+    GetCandidateIngestionRunSuccessEnvelope:
+      type: object
+      required: [success, timestamp, data, error]
+      properties:
+        success: { type: boolean, const: true }
+        timestamp: { type: string, format: date-time }
+        data: { $ref: '#/components/schemas/CandidateRun' }
+        error: { type: 'null' }
+    ListCandidateIngestionItemsSuccessEnvelope:
+      type: object
+      required: [success, timestamp, data, error]
+      properties:
+        success: { type: boolean, const: true }
+        timestamp: { type: string, format: date-time }
+        data: { $ref: '#/components/schemas/CandidateItemPage' }
+        error: { type: 'null' }
+    ResolveCandidateIngestionItemSuccessEnvelope:
+      type: object
+      required: [success, timestamp, data, error]
+      properties:
+        success: { type: boolean, const: true }
+        timestamp: { type: string, format: date-time }
+        data: { $ref: '#/components/schemas/CandidateResolution' }
+        error: { type: 'null' }
     CreateRecommendationSessionSuccessEnvelope:
       type: object
       required: [success, timestamp, data, error]
@@ -554,6 +721,19 @@ components:
       required: [status]
       properties:
         status: { type: string, enum: [ACCEPTED] }
+    AdminLoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 1 }
+    AdminSession:
+      type: object
+      required: [authenticated, csrfToken]
+      properties:
+        authenticated: { type: boolean }
+        email: { type: [string, 'null'], format: email }
+        csrfToken: { type: string }
     Health:
       type: object
       required: [status]
@@ -688,6 +868,103 @@ components:
         informationStatus:
           type: [string, 'null']
           enum: [VERIFIED, REVIEW_DUE, null]
+    CandidateIngestionRunStatus: { type: string, enum: [RUNNING, PARTIAL, FAILED, COMPLETED] }
+    CandidateMatchStatus:
+      type: string
+      enum: [NOT_EVALUATED, NO_MATCH, EXACT_PROVIDER_RECORD, EXACT_NAME_ADDRESS, EXACT_NAME_COORDINATES, AMBIGUOUS, RESOLVED_EXISTING, RESOLVED_DRAFT]
+    CandidateItemOutcome:
+      type: string
+      enum: [DRAFT_CREATED, MATCHED_EXISTING, DUPLICATE_SKIPPED, QUARANTINED, BLOCKED_BY_GATE, REJECTED, ITEM_FAILED, RESOLVED]
+    CandidateResolutionInput:
+      oneOf:
+        - $ref: '#/components/schemas/CandidateLinkExistingInput'
+        - $ref: '#/components/schemas/CandidateCreateDraftInput'
+    CandidateLinkExistingInput:
+      type: object
+      required: [resolutionType, storeId]
+      properties:
+        resolutionType: { type: string, const: LINK_EXISTING }
+        storeId: { type: string, format: uuid }
+    CandidateCreateDraftInput:
+      type: object
+      required: [resolutionType, name, address, coordinates, categories]
+      properties:
+        resolutionType: { type: string, const: CREATE_DRAFT }
+        name: { type: string, minLength: 1 }
+        address: { type: string, minLength: 1 }
+        coordinates: { $ref: '#/components/schemas/Coordinates' }
+        categories: { type: array, minItems: 1, items: { $ref: '#/components/schemas/CategorySlug' } }
+        phone: { type: string }
+        hours: { type: string }
+        description: { type: string }
+    CandidateRun:
+      type: object
+      required: [id, provider, idempotencyKey, requestedBy, requestedAt, status, gateVersion, seenCount, acceptedCount, dedupedCount, quarantinedCount, rejectedCount, failedCount]
+      properties:
+        id: { type: string, format: uuid }
+        provider: { type: string }
+        idempotencyKey: { type: string }
+        requestedBy: { type: string }
+        requestedAt: { type: string, format: date-time }
+        startedAt: { type: [string, 'null'], format: date-time }
+        finishedAt: { type: [string, 'null'], format: date-time }
+        status: { $ref: '#/components/schemas/CandidateIngestionRunStatus' }
+        gateVersion: { type: string }
+        seenCount: { type: integer }
+        acceptedCount: { type: integer }
+        dedupedCount: { type: integer }
+        quarantinedCount: { type: integer }
+        rejectedCount: { type: integer }
+        failedCount: { type: integer }
+        errorCode: { type: [string, 'null'] }
+        errorSummary: { type: [string, 'null'] }
+    CandidateItem:
+      type: object
+      required: [id, firstSeenRunId, lastSeenRunId, provider, sourceUrl, normalizedName, latestOutcome, latestMatchStatus, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        firstSeenRunId: { type: string, format: uuid }
+        lastSeenRunId: { type: string, format: uuid }
+        provider: { type: string }
+        providerRecordId: { type: [string, 'null'] }
+        sourceUrl: { type: string }
+        normalizedName: { type: string }
+        roadAddress: { type: [string, 'null'] }
+        roundedLatitude: { type: [number, 'null'] }
+        roundedLongitude: { type: [number, 'null'] }
+        phone: { type: [string, 'null'] }
+        industryCode: { type: [string, 'null'] }
+        latestOutcome: { $ref: '#/components/schemas/CandidateItemOutcome' }
+        latestMatchStatus: { $ref: '#/components/schemas/CandidateMatchStatus' }
+        resolvedStoreId: { type: [string, 'null'], format: uuid }
+        resolvedStoreStatus: { type: [string, 'null'], enum: [DRAFT, IN_REVIEW, PUBLISHED, REJECTED, null] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    CandidateRunPage:
+      type: object
+      required: [items, page, size, total]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/CandidateRun' } }
+        page: { type: integer }
+        size: { type: integer }
+        total: { type: integer }
+    CandidateItemPage:
+      type: object
+      required: [items, page, size, total]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/CandidateItem' } }
+        page: { type: integer }
+        size: { type: integer }
+        total: { type: integer }
+    CandidateResolution:
+      type: object
+      required: [itemId, outcome, matchStatus, resolvedStoreId, resolvedStoreStatus]
+      properties:
+        itemId: { type: string, format: uuid }
+        outcome: { type: string, enum: [RESOLVED] }
+        matchStatus: { type: string, enum: [RESOLVED_EXISTING, RESOLVED_DRAFT] }
+        resolvedStoreId: { type: string, format: uuid }
+        resolvedStoreStatus: { type: string, enum: [DRAFT, IN_REVIEW, PUBLISHED, REJECTED] }
     CategoryHealth:
       type: object
       required: [category, publishedStoreCount, storesByLifecycle, openReviewFlagCount]

@@ -93,8 +93,123 @@ class ApiResponseContractTest
             assertEquals(listOf("string", "null"), adminProperties.node("informationStatus")["type"])
             assertEquals(listOf("VERIFIED", "REVIEW_DUE", null), adminProperties.node("informationStatus")["enum"])
         }
+
+        @Test
+        fun `OpenAPI documents candidate ingestion admin paths and exact enums`() {
+            val openApi = Yaml().load<Map<String, Any?>>(Path.of("..", "contracts", "openapi.yaml").readText())
+            val paths = openApi.node("paths")
+            val schemas = openApi.node("components", "schemas")
+            val responses = openApi.node("components", "responses")
+
+            assertEquals(true, "/admin/candidate-ingestion/runs" in paths)
+            assertEquals(true, "/admin/candidate-ingestion/runs/{runId}" in paths)
+            assertEquals(true, "/admin/candidate-ingestion/items" in paths)
+            assertEquals(true, "/admin/candidate-ingestion/items/{itemId}/resolve" in paths)
+            assertEquals(
+                "#/components/responses/ListCandidateIngestionRunsSuccess",
+                paths.node("/admin/candidate-ingestion/runs", "get", "responses", "200")["\$ref"],
+            )
+            assertEquals(
+                "#/components/responses/GetCandidateIngestionRunSuccess",
+                paths.node("/admin/candidate-ingestion/runs/{runId}", "get", "responses", "200")["\$ref"],
+            )
+            assertEquals(
+                "#/components/responses/ListCandidateIngestionItemsSuccess",
+                paths.node("/admin/candidate-ingestion/items", "get", "responses", "200")["\$ref"],
+            )
+            assertEquals(
+                "#/components/responses/ResolveCandidateIngestionItemSuccess",
+                paths.node("/admin/candidate-ingestion/items/{itemId}/resolve", "post", "responses", "200")["\$ref"],
+            )
+            assertEquals(
+                "#/components/schemas/CandidateRun",
+                schemas.node("GetCandidateIngestionRunSuccessEnvelope", "properties", "data")["\$ref"],
+            )
+            assertEquals(listOf("RUNNING", "PARTIAL", "FAILED", "COMPLETED"), schemas.node("CandidateIngestionRunStatus")["enum"])
+            assertEquals(
+                listOf(
+                    "NOT_EVALUATED",
+                    "NO_MATCH",
+                    "EXACT_PROVIDER_RECORD",
+                    "EXACT_NAME_ADDRESS",
+                    "EXACT_NAME_COORDINATES",
+                    "AMBIGUOUS",
+                    "RESOLVED_EXISTING",
+                    "RESOLVED_DRAFT",
+                ),
+                schemas.node("CandidateMatchStatus")["enum"],
+            )
+            assertEquals(
+                listOf(
+                    "DRAFT_CREATED",
+                    "MATCHED_EXISTING",
+                    "DUPLICATE_SKIPPED",
+                    "QUARANTINED",
+                    "BLOCKED_BY_GATE",
+                    "REJECTED",
+                    "ITEM_FAILED",
+                    "RESOLVED",
+                ),
+                schemas.node("CandidateItemOutcome")["enum"],
+            )
+
+            assertAdminSecurity(paths.node("/admin/candidate-ingestion/runs", "get"))
+            assertAdminSecurity(paths.node("/admin/candidate-ingestion/runs/{runId}", "get"))
+            assertAdminSecurity(paths.node("/admin/candidate-ingestion/items", "get"))
+            val resolveOperation = paths.node("/admin/candidate-ingestion/items/{itemId}/resolve", "post")
+            assertAdminSecurity(resolveOperation)
+            assertEquals("#/components/parameters/CsrfToken", (resolveOperation["parameters"] as List<*>)[1].node()["\$ref"])
+            assertEquals(
+                "#/components/schemas/GetAdminSessionSuccessEnvelope",
+                responses.node("GetAdminSessionSuccess", "content", "application/json", "schema")["\$ref"],
+            )
+            listOf(
+                "/admin/auth/session" to "get",
+                "/admin/auth/login" to "post",
+                "/admin/auth/logout" to "post",
+            ).forEach { (path, method) ->
+                assertEquals(
+                    "#/components/responses/GetAdminSessionSuccess",
+                    paths.node(path, method, "responses", "200")["\$ref"],
+                )
+            }
+            val logoutOperation = paths.node("/admin/auth/logout", "post")
+            assertEquals(listOf(mapOf("adminSession" to emptyList<Any>())), logoutOperation["security"])
+            assertEquals("#/components/parameters/CsrfToken", (logoutOperation["parameters"] as List<*>)[0].node()["\$ref"])
+            assertEquals("#/components/responses/ApiError", logoutOperation.node("responses", "403")["\$ref"])
+
+            assertEquals(
+                listOf(
+                    "id",
+                    "firstSeenRunId",
+                    "lastSeenRunId",
+                    "provider",
+                    "sourceUrl",
+                    "normalizedName",
+                    "latestOutcome",
+                    "latestMatchStatus",
+                    "createdAt",
+                    "updatedAt",
+                ),
+                schemas.node("CandidateItem")["required"],
+            )
+        }
     }
 
 @Suppress("UNCHECKED_CAST")
 private fun Map<String, Any?>.node(vararg path: String): Map<String, Any?> =
     path.fold(this) { node, key -> node.getValue(key) as Map<String, Any?> }
+
+@Suppress("UNCHECKED_CAST")
+private fun Any?.node(): Map<String, Any?> = this as Map<String, Any?>
+
+private fun assertAdminSecurity(operation: Map<String, Any?>) {
+    assertEquals(
+        listOf(mapOf("adminSession" to emptyList<Any>()), mapOf("adminOidc" to listOf("ADMIN"))),
+        operation["security"],
+    )
+    val responses = operation.node("responses")
+    listOf("401", "403").forEach { status ->
+        assertEquals("#/components/responses/ApiError", responses.node(status)["\$ref"])
+    }
+}

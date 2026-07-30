@@ -10,7 +10,10 @@ import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
+import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.core.authority.SimpleGrantedAuthority
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
+import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator
 import org.springframework.security.oauth2.core.OAuth2Error
 import org.springframework.security.oauth2.core.OAuth2TokenValidator
@@ -23,19 +26,26 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.security.web.AuthenticationEntryPoint
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.access.AccessDeniedHandler
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository
+import org.springframework.security.web.context.SecurityContextRepository
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository
+import org.springframework.security.web.csrf.CsrfTokenRepository
+import org.springframework.security.web.util.matcher.RequestMatcher
 import org.springframework.web.cors.CorsConfiguration
 import org.springframework.web.cors.CorsConfigurationSource
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 import tools.jackson.databind.ObjectMapper
 
 @Configuration
-@EnableConfigurationProperties(OidcProperties::class, CorsProperties::class)
+@EnableConfigurationProperties(OidcProperties::class, CorsProperties::class, AdminSessionProperties::class)
 class SecurityConfig {
     @Bean
     fun securityFilterChain(
         http: HttpSecurity,
         properties: OidcProperties,
         corsConfigurationSource: CorsConfigurationSource,
+        securityContextRepository: SecurityContextRepository,
+        csrfTokenRepository: CsrfTokenRepository,
         objectMapper: ObjectMapper,
     ): SecurityFilterChain {
         // Authentication failures must preserve the public API error contract instead of returning HTML.
@@ -50,10 +60,16 @@ class SecurityConfig {
 
         http
             .cors { it.configurationSource(corsConfigurationSource) }
-            .csrf { it.disable() }
+            .csrf {
+                it.csrfTokenRepository(csrfTokenRepository)
+                it.requireCsrfProtectionMatcher(sessionCsrfMatcher())
+            }.securityContext { it.securityContextRepository(securityContextRepository) }
+            .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED) }
             .authorizeHttpRequests {
                 it
                     .requestMatchers("/api/v1/health", "/actuator/health", "/error")
+                    .permitAll()
+                    .requestMatchers("/api/v1/admin/auth/session", "/api/v1/admin/auth/login")
                     .permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/v1/categories", "/api/v1/stores", "/api/v1/stores/**")
                     .permitAll()
@@ -80,6 +96,15 @@ class SecurityConfig {
     }
 
     @Bean
+    fun securityContextRepository(): SecurityContextRepository = HttpSessionSecurityContextRepository()
+
+    @Bean
+    fun csrfTokenRepository(): CsrfTokenRepository = CookieCsrfTokenRepository.withHttpOnlyFalse()
+
+    @Bean
+    fun passwordEncoder(): PasswordEncoder = BCryptPasswordEncoder()
+
+    @Bean
     fun corsConfigurationSource(properties: CorsProperties): CorsConfigurationSource {
         val configuration =
             CorsConfiguration().apply {
@@ -92,6 +117,19 @@ class SecurityConfig {
         return UrlBasedCorsConfigurationSource().apply { registerCorsConfiguration("/**", configuration) }
     }
 
+    private fun sessionCsrfMatcher() =
+        RequestMatcher { request ->
+            request.requestURI.startsWith("/api/v1/admin/") &&
+                request.method !in
+                setOf(
+                    HttpMethod.GET.name(),
+                    HttpMethod.HEAD.name(),
+                    HttpMethod.OPTIONS.name(),
+                    HttpMethod.TRACE.name(),
+                ) &&
+                request.getSession(false)?.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY) != null
+        }
+
     private fun jwtDecoder(properties: OidcProperties): JwtDecoder =
         NimbusJwtDecoder.withIssuerLocation(properties.issuerUri).build().also { decoder ->
             val audience =
@@ -102,7 +140,12 @@ class SecurityConfig {
                         OAuth2TokenValidatorResult.failure(OAuth2Error("invalid_token", "JWT audience is not accepted", null))
                     }
                 }
-            decoder.setJwtValidator(DelegatingOAuth2TokenValidator(JwtValidators.createDefaultWithIssuer(properties.issuerUri), audience))
+            decoder.setJwtValidator(
+                DelegatingOAuth2TokenValidator(
+                    JwtValidators.createDefaultWithIssuer(properties.issuerUri),
+                    audience,
+                ),
+            )
         }
 
     private fun jwtAuthenticationConverter() =

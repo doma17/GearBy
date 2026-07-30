@@ -9,3 +9,10 @@ test("manual category flags require a real store selection", () => {
   assert(source.includes('select name="storeId" required'));
   assert(source.includes('Manual review reason<input name="reason" required maxLength={500}'));
 });
+
+test("admin operations use the server session instead of storing a JWT", () => {
+  assert(!source.includes("gearby-admin-token"));
+  assert(source.includes('credentials: "include"'));
+  assert(source.includes("/auth/login"));
+  assert(source.includes("/auth/logout"));
+});

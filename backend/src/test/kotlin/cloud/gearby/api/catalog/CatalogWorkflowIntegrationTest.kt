@@ -61,6 +61,9 @@ class CatalogWorkflowIntegrationTest
             jdbc.update("DELETE FROM category_review_flags", emptyMap<String, Any>())
             jdbc.update("DELETE FROM feedback", emptyMap<String, Any>())
             jdbc.update("DELETE FROM audit_events", emptyMap<String, Any>())
+            jdbc.update("DELETE FROM store_candidate_provenance", emptyMap<String, Any>())
+            jdbc.update("DELETE FROM candidate_ingestion_runs", emptyMap<String, Any>())
+            jdbc.update("DELETE FROM candidate_ingestion_provider_policy", emptyMap<String, Any>())
             val seedIds =
                 listOf(UUID.fromString("11111111-1111-1111-1111-111111111111"), UUID.fromString("22222222-2222-2222-2222-222222222222"))
             jdbc.update(
@@ -192,6 +195,68 @@ class CatalogWorkflowIntegrationTest
                 jsonPath("$.success") { value(false) }
                 jsonPath("$.error.code") { value("NOT_FOUND") }
             }
+        }
+
+        @Test
+        fun `candidate ingestion draft store remains excluded from public catalog`() {
+            val draft =
+                catalog.create(
+                    StoreUpsertCommand(
+                        "Ingestion Hidden Draft",
+                        "Seoul",
+                        Coordinates(BigDecimal("37.5"), BigDecimal("127.0")),
+                        setOf(Category.HIKING),
+                    ),
+                    "ingestion-test",
+                )
+            val runId = UUID.randomUUID()
+            val policyId = UUID.randomUUID()
+            jdbc.update(
+                """
+                INSERT INTO candidate_ingestion_provider_policy (
+                    id, provider_key, approval_status, approval_owner, reviewed_at, approved_source_url,
+                    allowed_fields, retention_rules, gate_version, sample_precision_result_reference,
+                    sample_size, region_count, precision_threshold, active
+                ) VALUES (:policyId, 'semas', 'APPROVED', 'qa-admin', CURRENT_TIMESTAMP, 'https://example.test/approval',
+                    'name,address,coordinates', 'digest-only', 'gate-v1', 'sample-v1', 100, 5, 90.00, TRUE)
+                """.trimIndent(),
+                mapOf("policyId" to policyId),
+            )
+            jdbc.update(
+                """
+                INSERT INTO candidate_ingestion_runs (
+                    id, provider_policy_id, provider_key, idempotency_key, requested_by, requested_at, started_at,
+                    finished_at, status, gate_version, seen_count, accepted_count, deduped_count, quarantined_count, rejected_count, failed_count
+                ) VALUES (:runId, :policyId, 'semas', :key, 'qa-admin', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+                    CURRENT_TIMESTAMP, 'COMPLETED', 'gate-v1', 1, 1, 0, 0, 0, 0)
+                """.trimIndent(),
+                mapOf("runId" to runId, "policyId" to policyId, "key" to "draft-public-${draft.id}"),
+            )
+            jdbc.update(
+                """
+                INSERT INTO store_candidate_provenance (
+                    id, run_id, provider_key, provider_record_id, dedup_key, first_seen_run_id, last_seen_run_id,
+                    first_seen_at, last_seen_at, source_type, source_url, normalized_name, road_address,
+                    rounded_latitude, rounded_longitude, match_precedence, match_status, latest_item_outcome,
+                    resolved_store_id, payload_sha256_digest, created_by, edited_by
+                ) VALUES (:id, :runId, 'semas', :recordId, :dedupKey, :runId, :runId,
+                    CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'API', 'https://example.test/item', 'ingestion hidden draft', 'Seoul',
+                    37.500000, 127.000000, 'NONE', 'NO_MATCH', 'DRAFT_CREATED', :storeId, repeat('b', 64), 'qa-admin', 'qa-admin')
+                """.trimIndent(),
+                mapOf(
+                    "id" to UUID.randomUUID(),
+                    "runId" to runId,
+                    "recordId" to "record-${draft.id}",
+                    "dedupKey" to "dedup-${draft.id}",
+                    "storeId" to draft.id,
+                ),
+            )
+
+            mockMvc.get("/api/v1/stores") { param("q", "Ingestion Hidden Draft") }.andExpect {
+                status { isOk() }
+                jsonPath("$.data.items.length()") { value(0) }
+            }
+            mockMvc.get("/api/v1/stores/${draft.id}").andExpect { status { isNotFound() } }
         }
 
         @Test
