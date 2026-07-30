@@ -19,6 +19,7 @@ interface CandidateIngestionRunJpaRepository : JpaRepository<CandidateIngestionR
         SELECT r FROM CandidateIngestionRunEntity r
         WHERE (:status IS NULL OR r.status = :status)
           AND (:provider IS NULL OR r.providerKey = :provider)
+        ORDER BY r.requestedAt DESC, r.id ASC
         """,
     )
     fun findAdminPage(

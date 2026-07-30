@@ -48,6 +48,8 @@ class AdminSessionController(
         val authentication =
             authenticator.authenticate(request.email, request.password)
                 ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "invalid email or password")
+        servletRequest.getSession()
+        servletRequest.changeSessionId()
         val context = SecurityContextHolder.createEmptyContext().apply { this.authentication = authentication }
         securityContextRepository.saveContext(context, servletRequest, servletResponse)
         return ApiResponse.success(AdminSessionResponse(authenticated = true, email = authentication.name, csrfToken = csrfToken.token))

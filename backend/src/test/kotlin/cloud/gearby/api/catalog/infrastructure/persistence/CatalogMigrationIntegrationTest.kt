@@ -111,12 +111,14 @@ class CatalogMigrationIntegrationTest : PostgresIntegrationTest() {
                         """
                         SELECT ccu.table_name
                         FROM information_schema.table_constraints tc
+                        JOIN information_schema.key_column_usage kcu
+                          ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
                         JOIN information_schema.constraint_column_usage ccu
                           ON tc.constraint_name = ccu.constraint_name AND tc.table_schema = ccu.table_schema
                         WHERE tc.table_schema = ?
                           AND tc.table_name = 'store_candidate_provenance'
                           AND tc.constraint_type = 'FOREIGN KEY'
-                          AND ccu.column_name = 'id'
+                          AND kcu.column_name = 'run_id'
                         """.trimIndent(),
                     ).use { statement ->
                         statement.setString(1, schema)

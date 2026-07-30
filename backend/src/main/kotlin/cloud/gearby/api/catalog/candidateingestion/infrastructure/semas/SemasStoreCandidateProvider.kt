@@ -17,7 +17,8 @@ class SemasStoreCandidateProvider(
 ) : StoreCandidateProvider {
     private val serviceKey = properties.serviceKey.trim()
     private val pageSizeLimit = 1000
-    private val restClient = restClientBuilder.baseUrl(properties.baseUrl.trimEnd('/')).build()
+    private val baseUrl = properties.baseUrl.trimEnd('/')
+    private val restClient = restClientBuilder.baseUrl(baseUrl).build()
 
     override fun fetchPage(
         industryCode: String,
@@ -26,7 +27,7 @@ class SemasStoreCandidateProvider(
     ): ProviderCandidatePage {
         require(serviceKey.isNotBlank()) { "SEMAS service key is required" }
         val boundedPageSize = pageSize.coerceIn(1, pageSizeLimit)
-        val sourceUrl = "${SemasIngestionProperties.DEFAULT_BASE_URL}$PATH"
+        val sourceUrl = "$baseUrl$PATH"
         val body =
             try {
                 restClient

@@ -39,7 +39,7 @@ class CandidateIngestionManager(
         val policy = requireNotNull(reader.activePolicy(providerKey)) { "active provider policy is required" }
         require(policy.toPolicy().allowsSemasIngestion()) { "provider policy is not approved" }
         require(requiredGateVersion == null || requiredGateVersion == policy.gateVersion) { "allowlist version is not approved" }
-        return appender.saveRun(
+        return appender.createRun(
             CandidateIngestionRunEntity(
                 providerPolicyId = policy.id,
                 providerKey = providerKey,
@@ -110,7 +110,7 @@ class CandidateIngestionManager(
     fun interruptRun(runId: UUID): CandidateIngestionRunEntity {
         val run = requireNotNull(reader.run(runId)) { "run not found" }
         if (run.status == IngestionRunStatus.RUNNING) {
-            run.status = IngestionRunStatus.FAILED
+            run.status = if (run.seenCount > 0) IngestionRunStatus.PARTIAL else IngestionRunStatus.FAILED
             run.errorCode = "INTERRUPTED"
             run.errorSummary = "stale running run interrupted; retry with a new key"
             run.finishedAt = clock.instant()
@@ -157,20 +157,27 @@ class CandidateIngestionManager(
         }
         if (candidate.providerRecordId == null) {
             reader.provenanceByDedupKey(run.providerKey, candidate.identity.dedupKey)?.let {
-                val status =
+                val (status, outcome) =
                     when (candidate.identity.precedence) {
-                        CandidateMatchPrecedence.NAME_ADDRESS -> CandidateMatchStatus.EXACT_NAME_ADDRESS
-                        CandidateMatchPrecedence.NAME_COORDINATES -> CandidateMatchStatus.EXACT_NAME_COORDINATES
-                        else -> CandidateMatchStatus.AMBIGUOUS
+                        CandidateMatchPrecedence.NAME_ADDRESS ->
+                            CandidateMatchStatus.EXACT_NAME_ADDRESS to CandidateItemOutcome.MATCHED_EXISTING
+                        CandidateMatchPrecedence.NAME_COORDINATES ->
+                            CandidateMatchStatus.EXACT_NAME_COORDINATES to CandidateItemOutcome.MATCHED_EXISTING
+                        else -> CandidateMatchStatus.AMBIGUOUS to CandidateItemOutcome.QUARANTINED
                     }
-                return updateSeen(it, run.id, status, CandidateItemOutcome.MATCHED_EXISTING, actor)
+                return updateSeen(it, run.id, status, outcome, actor)
             }
         }
         if (candidate.identity.precedence == CandidateMatchPrecedence.AMBIGUOUS || candidate.categories.isEmpty()) {
             return createProvenance(run, candidate, CandidateMatchStatus.AMBIGUOUS, CandidateItemOutcome.QUARANTINED, actor)
         }
-        matchingStore(candidate)?.let { (storeId, status) ->
+        val storeMatches = matchingStores(candidate)
+        if (storeMatches.size == 1) {
+            val (storeId, status) = storeMatches.single()
             return createProvenance(run, candidate, status, CandidateItemOutcome.MATCHED_EXISTING, actor, storeId)
+        }
+        if (storeMatches.size > 1) {
+            return createProvenance(run, candidate, CandidateMatchStatus.AMBIGUOUS, CandidateItemOutcome.QUARANTINED, actor)
         }
         val store =
             catalogManager.createStore(
@@ -186,7 +193,7 @@ class CandidateIngestionManager(
         return createProvenance(run, candidate, CandidateMatchStatus.NO_MATCH, CandidateItemOutcome.DRAFT_CREATED, actor, store.id)
     }
 
-    private fun matchingStore(candidate: NormalizedStoreCandidate): Pair<UUID, CandidateMatchStatus>? =
+    private fun matchingStores(candidate: NormalizedStoreCandidate): List<Pair<UUID, CandidateMatchStatus>> =
         catalogReader
             .allStores()
             .mapNotNull { store ->
@@ -202,7 +209,7 @@ class CandidateIngestionManager(
                     sameName && sameCoordinates -> store.id to CandidateMatchStatus.EXACT_NAME_COORDINATES
                     else -> null
                 }
-            }.singleOrNull()
+            }
 
     private fun createProvenance(
         run: CandidateIngestionRunEntity,

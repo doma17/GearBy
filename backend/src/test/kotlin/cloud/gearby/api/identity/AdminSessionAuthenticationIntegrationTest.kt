@@ -23,7 +23,7 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post 
 @TestPropertySource(
     properties = [
         "gearby.admin.email=admin@gearby.cloud",
-        "gearby.admin.password=test-only-password",
+        "gearby.admin.password-hash=\$2y\$10\$JJa156eAPzRGut73E.JtxOl.G2U761o1Ldv7.2CSPXoIjJg/aXUq.",
     ],
 )
 class AdminSessionAuthenticationIntegrationTest
@@ -66,6 +66,24 @@ class AdminSessionAuthenticationIntegrationTest
                         .cookie(csrfCookie)
                         .header("X-XSRF-TOKEN", csrfToken),
                 ).andExpect(status().isOk)
+        }
+
+        @Test
+        fun `login rotates an existing browser session`() {
+            val existingSession = MockHttpSession()
+            val previousId = existingSession.id
+
+            val login =
+                mockMvc
+                    .post("/api/v1/admin/auth/login") {
+                        session = existingSession
+                        contentType = MediaType.APPLICATION_JSON
+                        content = """{"email":"admin@gearby.cloud","password":"test-only-password"}"""
+                    }.andExpect { status { isOk() } }
+                    .andReturn()
+
+            val rotatedSessionId = assertNotNull(login.request.getSession(false)).id
+            kotlin.test.assertNotEquals(previousId, rotatedSessionId)
         }
 
         @Test

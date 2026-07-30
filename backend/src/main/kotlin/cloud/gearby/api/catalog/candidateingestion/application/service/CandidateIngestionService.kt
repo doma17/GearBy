@@ -12,6 +12,7 @@ import cloud.gearby.api.catalog.candidateingestion.domain.IngestionRunStatus
 import cloud.gearby.api.catalog.candidateingestion.infrastructure.implement.CandidateIngestionManager
 import cloud.gearby.api.catalog.candidateingestion.infrastructure.implement.CandidateIngestionReader
 import org.slf4j.LoggerFactory
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.support.TransactionTemplate
 import java.security.MessageDigest
@@ -27,7 +28,7 @@ class CandidateIngestionService(
 
     fun ingest(command: CandidateIngestionCommand): CandidateIngestionResult {
         reader.runByKey(command.providerKey, command.idempotencyKey)?.let { return it.toResult(idempotent = true) }
-        val run = transactions.execute { manager.startRun(command.providerKey, command.idempotencyKey, command.requestedBy) }
+        val run = startRun(command.providerKey, command.idempotencyKey, command.requestedBy)
         command.candidates.forEach { candidate ->
             transactions.execute { manager.recordCandidate(run.id, candidate.normalized(), command.requestedBy) }
         }
@@ -52,10 +53,7 @@ class CandidateIngestionService(
             }?.let { return it }
         validateMutableConfig(command)
 
-        val run =
-            transactions.execute {
-                manager.startRun(command.providerKey, command.idempotencyKey, command.requestedBy, command.allowlistVersion)
-            }
+        val run = startRun(command.providerKey, command.idempotencyKey, command.requestedBy, command.allowlistVersion)
         log.info("candidate_ingestion_start runId={} status={}", run.id, run.status)
         try {
             command.industryCodes.forEach { code ->
@@ -96,6 +94,21 @@ class CandidateIngestionService(
 
     fun items(runId: UUID): List<CandidateItemResult> =
         reader.provenanceForRun(runId).map { CandidateItemResult(it.id, it.latestItemOutcome, it.matchStatus, it.resolvedStoreId) }
+
+    private fun startRun(
+        providerKey: String,
+        idempotencyKey: String,
+        requestedBy: String,
+        allowlistVersion: String? = null,
+    ) = try {
+        requireNotNull(
+            transactions.execute {
+                manager.startRun(providerKey, idempotencyKey, requestedBy, allowlistVersion)
+            },
+        )
+    } catch (error: DataIntegrityViolationException) {
+        requireNotNull(reader.runByKey(providerKey, idempotencyKey)) { "idempotent run was not found" }
+    }
 
     private fun validateKey(command: ProviderIngestionCommand) {
         require(command.providerKey == "semas") { "provider must be semas" }

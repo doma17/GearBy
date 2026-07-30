@@ -126,7 +126,7 @@ paths:
       operationId: getAdminSession
       summary: Get the current administrator session and CSRF token
       responses:
-        '200': { $ref: '#/components/responses/ApiResponse' }
+        '200': { $ref: '#/components/responses/GetAdminSessionSuccess' }
   /admin/auth/login:
     post:
       operationId: loginAdminSession
@@ -137,7 +137,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/AdminLoginInput' }
       responses:
-        '200': { $ref: '#/components/responses/ApiResponse' }
+        '200': { $ref: '#/components/responses/GetAdminSessionSuccess' }
         '401': { $ref: '#/components/responses/ApiError' }
   /admin/auth/logout:
     post:
@@ -145,7 +145,7 @@ paths:
       summary: End the current administrator browser session
       security: [{ adminSession: [] }]
       parameters:
-        - { name: X-XSRF-TOKEN, in: header, required: true, schema: { type: string } }
+        - { $ref: '#/components/parameters/CsrfToken' }
       responses:
         '200': { $ref: '#/components/responses/ApiResponse' }
         '403': { $ref: '#/components/responses/ApiError' }
@@ -438,6 +438,7 @@ paths:
       security: [{ adminSession: [] }, { adminOidc: [ADMIN] }]
       parameters:
         - { name: itemId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { $ref: '#/components/parameters/CsrfToken' }
       requestBody:
         required: true
         content:
@@ -478,6 +479,11 @@ components:
         type: array
         uniqueItems: true
         items: { $ref: '#/components/schemas/CategorySlug' }
+    CsrfToken:
+      name: X-XSRF-TOKEN
+      in: header
+      required: true
+      schema: { type: string }
     Query: { name: q, in: query, schema: { type: string, maxLength: 120 } }
     ApplyCorrection:
       name: applyCorrection
@@ -500,6 +506,11 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ApiResponse' }
+    GetAdminSessionSuccess:
+      description: Administrator session response envelope.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/GetAdminSessionSuccessEnvelope' }
     ListCandidateIngestionRunsSuccess:
       description: Candidate ingestion run page response envelope.
       content:
@@ -563,6 +574,14 @@ components:
       properties:
         code: { type: string, enum: [INVALID_REQUEST, UNAUTHORIZED, FORBIDDEN, NOT_FOUND, CONFLICT, INTERNAL_ERROR] }
         message: { type: string }
+    GetAdminSessionSuccessEnvelope:
+      type: object
+      required: [success, timestamp, data, error]
+      properties:
+        success: { type: boolean, const: true }
+        timestamp: { type: string, format: date-time }
+        data: { $ref: '#/components/schemas/AdminSession' }
+        error: { type: 'null' }
     ListCandidateIngestionRunsSuccessEnvelope:
       type: object
       required: [success, timestamp, data, error]

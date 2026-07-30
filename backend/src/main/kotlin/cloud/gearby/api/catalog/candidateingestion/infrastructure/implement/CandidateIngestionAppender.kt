@@ -18,5 +18,7 @@ class CandidateIngestionAppender(
 
     fun saveRun(run: CandidateIngestionRunEntity) = runs.save(run)
 
+    fun createRun(run: CandidateIngestionRunEntity) = runs.saveAndFlush(run)
+
     fun saveProvenance(item: StoreCandidateProvenanceEntity) = provenance.save(item)
 }

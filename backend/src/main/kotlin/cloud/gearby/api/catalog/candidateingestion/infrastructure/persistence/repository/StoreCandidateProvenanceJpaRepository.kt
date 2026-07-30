@@ -35,6 +35,7 @@ interface StoreCandidateProvenanceJpaRepository : JpaRepository<StoreCandidatePr
         WHERE (:runId IS NULL OR p.firstSeenRunId = :runId OR p.lastSeenRunId = :runId)
           AND (:latestOutcome IS NULL OR p.latestItemOutcome = :latestOutcome)
           AND (:latestMatchStatus IS NULL OR p.matchStatus = :latestMatchStatus)
+        ORDER BY p.createdAt DESC, p.id ASC
         """,
     )
     fun findAdminPage(

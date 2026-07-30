@@ -364,10 +364,10 @@ describe("Discovery", () => {
 
     expect(screen.queryByRole("dialog", { name: "매장 정보 신고" })).toBeNull();
     await user.click(screen.getByRole("button", { name: "매장 정보 신고" }));
-    expect(screen.getByRole("dialog", { name: "매장 정보 신고" })).toBeTruthy();
+    expect(await screen.findByRole("dialog", { name: "매장 정보 신고" })).toBeTruthy();
     expect(screen.getByRole("textbox", { name: "문제 내용" })).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: "취소" }));
-    expect(screen.queryByRole("dialog", { name: "매장 정보 신고" })).toBeNull();
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "매장 정보 신고" })).toBeNull());
   });
 });

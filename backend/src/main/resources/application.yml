@@ -20,7 +20,7 @@ gearby:
   admin:
     # Leave blank to fail closed; configure these only in the private runtime environment.
     email: ${ADMIN_EMAIL:}
-    password: ${ADMIN_PASSWORD:}
+    password-hash: ${ADMIN_PASSWORD_HASH:}
   ingestion:
     enabled: ${CANDIDATE_INGESTION_ENABLED:false}
     provider: ${CANDIDATE_INGESTION_PROVIDER:}

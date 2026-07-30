@@ -15,7 +15,7 @@ import java.util.UUID
 @Table(name = "candidate_ingestion_runs")
 class CandidateIngestionRunEntity(
     @Id var id: UUID = UUID.randomUUID(),
-    @Column(name = "provider_policy_id") var providerPolicyId: UUID? = null,
+    @Column(name = "provider_policy_id", nullable = false) var providerPolicyId: UUID? = null,
     @Column(name = "provider_key") var providerKey: String = "",
     @Column(name = "idempotency_key") var idempotencyKey: String = "",
     @Column(name = "requested_by") var requestedBy: String = "system",

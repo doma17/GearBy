@@ -57,6 +57,8 @@ export default function Discovery({ apiBaseUrl, naverMapClientId }: { apiBaseUrl
   const map = useRef<NaverMap | null>(null);
   const markers = useRef<NaverMarker[]>([]);
   const userLocationMarker = useRef<NaverMarker | null>(null);
+  const feedbackDialog = useRef<HTMLDialogElement>(null);
+  const feedbackTrigger = useRef<HTMLButtonElement>(null);
   const [categories, setCategories] = useState(fallbackCategories);
   const [categoryNotice, setCategoryNotice] = useState("");
   const [stores, setStores] = useState<Store[]>([]);
@@ -144,6 +146,19 @@ export default function Discovery({ apiBaseUrl, naverMapClientId }: { apiBaseUrl
     if (store && naver && map.current) map.current.setCenter(new naver.LatLng(store.coordinates.latitude, store.coordinates.longitude));
   }, [view.selectedId, stores]);
 
+  useEffect(() => {
+    const dialog = feedbackDialog.current;
+    if (!feedbackOpen || !dialog) return;
+    if (typeof dialog.showModal === "function") dialog.showModal();
+    else dialog.setAttribute("open", "");
+    const trigger = feedbackTrigger.current;
+    return () => {
+      if (typeof dialog.close === "function") dialog.close();
+      else dialog.removeAttribute("open");
+      trigger?.focus();
+    };
+  }, [feedbackOpen]);
+
   function toggleCategory(category: string) {
     dispatch({ type: "categoryToggled", category });
   }
@@ -172,7 +187,8 @@ export default function Discovery({ apiBaseUrl, naverMapClientId }: { apiBaseUrl
 
   async function submitFeedback(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const contactConsent = form.get("contactConsent") === "on";
     const payload: components["schemas"]["FeedbackInput"] = {
       kind: form.get("kind") as FeedbackKind,
@@ -185,7 +201,7 @@ export default function Discovery({ apiBaseUrl, naverMapClientId }: { apiBaseUrl
     try {
       await readApiResponse(response);
       dispatch({ type: "feedbackStatusChanged", feedbackStatus: "의견을 검토 요청으로 보냈습니다." });
-      event.currentTarget.reset();
+      formElement.reset();
       setFeedbackOpen(false);
     } catch {
       dispatch({ type: "feedbackStatusChanged", feedbackStatus: "의견을 보내지 못했습니다. 다시 시도해 주세요." });
@@ -250,10 +266,10 @@ export default function Discovery({ apiBaseUrl, naverMapClientId }: { apiBaseUrl
           </section> : <section className="places-content" aria-live="polite">
             <div className="panel-heading"><div><p className="panel-kicker">CURATED STORES</p><h2>{stores.length} places</h2></div><button type="button" className="filter-trigger" onClick={() => dispatch({ type: "panelChanged", panel: "filters" })}>필터</button></div>
             <div className="store-list">{stores.map((store) => <button id={`store-${store.id}`} type="button" key={store.id} className={store.id === view.selectedId ? "store-card selected" : "store-card"} onClick={() => dispatch({ type: "selectedIdChanged", selectedId: store.id })}><span className="store-index">{stores.indexOf(store) + 1}</span><span><strong>{store.name}</strong><small>{store.address}</small><small>{store.hours ?? "영업시간 정보 없음"}</small></span></button>)}{!stores.length && <p className="empty-state">조건에 맞는 매장이 없습니다.</p>}</div>
-            {selectedDetail && <section className="place-detail" aria-labelledby="store-detail-title"><div className="detail-controls"><button className="report-button" type="button" aria-label="매장 정보 신고" onClick={() => { dispatch({ type: "feedbackStatusChanged", feedbackStatus: "" }); setFeedbackOpen(true); }}>🚨</button><button className="detail-close" type="button" onClick={closeDetail} aria-label="매장 상세 닫기">×</button></div><p className="panel-kicker">선택한 매장</p><h3 id="store-detail-title">{selectedDetail.name}</h3><p>{selectedDetail.description ?? "등록된 설명이 없습니다."}</p><dl><div><dt>주소</dt><dd>{selectedDetail.address}</dd></div><div><dt>영업시간</dt><dd>{selectedDetail.hours ?? "정보 없음"}</dd></div><div><dt>활동</dt><dd>{selectedDetail.categories.map((slug) => categories.find((category) => category.slug === slug)?.displayName ?? slug).join(", ")}</dd></div></dl><div className="actions"><a href={`https://map.naver.com/p/search/${encodeURIComponent(`${selectedDetail.name} ${selectedDetail.address}`)}`} target="_blank" rel="noreferrer">Naver Map Link</a></div>{view.feedbackStatus && <p className="feedback-status" role="status">{view.feedbackStatus}</p>}</section>}
+            {selectedDetail && <section className="place-detail" aria-labelledby="store-detail-title"><div className="detail-controls"><button ref={feedbackTrigger} className="report-button" type="button" aria-label="매장 정보 신고" onClick={() => { dispatch({ type: "feedbackStatusChanged", feedbackStatus: "" }); setFeedbackOpen(true); }}>🚨</button><button className="detail-close" type="button" onClick={closeDetail} aria-label="매장 상세 닫기">×</button></div><p className="panel-kicker">선택한 매장</p><h3 id="store-detail-title">{selectedDetail.name}</h3><p>{selectedDetail.description ?? "등록된 설명이 없습니다."}</p><dl><div><dt>주소</dt><dd>{selectedDetail.address}</dd></div><div><dt>영업시간</dt><dd>{selectedDetail.hours ?? "정보 없음"}</dd></div><div><dt>활동</dt><dd>{selectedDetail.categories.map((slug) => categories.find((category) => category.slug === slug)?.displayName ?? slug).join(", ")}</dd></div></dl><div className="actions"><a href={`https://map.naver.com/p/search/${encodeURIComponent(`${selectedDetail.name} ${selectedDetail.address}`)}`} target="_blank" rel="noreferrer">Naver Map Link</a></div>{view.feedbackStatus && <p className="feedback-status" role="status">{view.feedbackStatus}</p>}</section>}
           </section>}
         </aside>
-        {feedbackOpen && selectedDetail && <div className="feedback-backdrop" onClick={() => setFeedbackOpen(false)}><section className="feedback-dialog" role="dialog" aria-modal="true" aria-labelledby="feedback-title" onClick={(event) => event.stopPropagation()}><button className="dialog-close" type="button" onClick={() => setFeedbackOpen(false)} aria-label="신고 창 닫기">×</button><p className="panel-kicker">REPORT STORE</p><h2 id="feedback-title">매장 정보 신고</h2><p>{selectedDetail.name} 정보에 문제가 있나요?</p><form className="feedback-form" onSubmit={submitFeedback}><label>문제 내용<textarea name="content" required maxLength={2000} placeholder="잘못되었거나 변경된 정보를 알려주세요" /></label><input name="kind" type="hidden" value="CORRECTION" readOnly /><div className="dialog-actions"><button className="text-action" type="button" onClick={() => setFeedbackOpen(false)}>취소</button><button className="primary-action" type="submit">전송</button></div>{view.feedbackStatus && <p role="status">{view.feedbackStatus}</p>}</form></section></div>}
+        {feedbackOpen && selectedDetail && <dialog ref={feedbackDialog} className="feedback-dialog" aria-labelledby="feedback-title" onCancel={(event) => { event.preventDefault(); setFeedbackOpen(false); }} onClick={(event) => { if (event.target === event.currentTarget) setFeedbackOpen(false); }}><button className="dialog-close" type="button" onClick={() => setFeedbackOpen(false)} aria-label="신고 창 닫기">×</button><p className="panel-kicker">REPORT STORE</p><h2 id="feedback-title">매장 정보 신고</h2><p>{selectedDetail.name} 정보에 문제가 있나요?</p><form className="feedback-form" onSubmit={submitFeedback}><label>문제 내용<textarea name="content" autoFocus required maxLength={2000} placeholder="잘못되었거나 변경된 정보를 알려주세요" /></label><input name="kind" type="hidden" value="CORRECTION" readOnly /><div className="dialog-actions"><button className="text-action" type="button" onClick={() => setFeedbackOpen(false)}>취소</button><button className="primary-action" type="submit">전송</button></div>{view.feedbackStatus && <p role="status">{view.feedbackStatus}</p>}</form></dialog>}
       </section>
     </section>
   </main>;

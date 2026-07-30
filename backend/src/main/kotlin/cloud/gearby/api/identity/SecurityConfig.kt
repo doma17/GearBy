@@ -12,6 +12,8 @@ import org.springframework.http.MediaType
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.core.authority.SimpleGrantedAuthority
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
+import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator
 import org.springframework.security.oauth2.core.OAuth2Error
 import org.springframework.security.oauth2.core.OAuth2TokenValidator
@@ -100,6 +102,9 @@ class SecurityConfig {
     fun csrfTokenRepository(): CsrfTokenRepository = CookieCsrfTokenRepository.withHttpOnlyFalse()
 
     @Bean
+    fun passwordEncoder(): PasswordEncoder = BCryptPasswordEncoder()
+
+    @Bean
     fun corsConfigurationSource(properties: CorsProperties): CorsConfigurationSource {
         val configuration =
             CorsConfiguration().apply {
@@ -114,7 +119,14 @@ class SecurityConfig {
 
     private fun sessionCsrfMatcher() =
         RequestMatcher { request ->
-            request.method !in setOf(HttpMethod.GET.name(), HttpMethod.HEAD.name(), HttpMethod.OPTIONS.name(), HttpMethod.TRACE.name()) &&
+            request.requestURI.startsWith("/api/v1/admin/") &&
+                request.method !in
+                setOf(
+                    HttpMethod.GET.name(),
+                    HttpMethod.HEAD.name(),
+                    HttpMethod.OPTIONS.name(),
+                    HttpMethod.TRACE.name(),
+                ) &&
                 request.getSession(false)?.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY) != null
         }
 
@@ -128,7 +140,12 @@ class SecurityConfig {
                         OAuth2TokenValidatorResult.failure(OAuth2Error("invalid_token", "JWT audience is not accepted", null))
                     }
                 }
-            decoder.setJwtValidator(DelegatingOAuth2TokenValidator(JwtValidators.createDefaultWithIssuer(properties.issuerUri), audience))
+            decoder.setJwtValidator(
+                DelegatingOAuth2TokenValidator(
+                    JwtValidators.createDefaultWithIssuer(properties.issuerUri),
+                    audience,
+                ),
+            )
         }
 
     private fun jwtAuthenticationConverter() =

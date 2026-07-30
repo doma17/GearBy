@@ -99,6 +99,7 @@ class ApiResponseContractTest
             val openApi = Yaml().load<Map<String, Any?>>(Path.of("..", "contracts", "openapi.yaml").readText())
             val paths = openApi.node("paths")
             val schemas = openApi.node("components", "schemas")
+            val responses = openApi.node("components", "responses")
 
             assertEquals(true, "/admin/candidate-ingestion/runs" in paths)
             assertEquals(true, "/admin/candidate-ingestion/runs/{runId}" in paths)
@@ -152,6 +153,17 @@ class ApiResponseContractTest
                 schemas.node("CandidateItemOutcome")["enum"],
             )
 
+            assertAdminSecurity(paths.node("/admin/candidate-ingestion/runs", "get"))
+            assertAdminSecurity(paths.node("/admin/candidate-ingestion/runs/{runId}", "get"))
+            assertAdminSecurity(paths.node("/admin/candidate-ingestion/items", "get"))
+            val resolveOperation = paths.node("/admin/candidate-ingestion/items/{itemId}/resolve", "post")
+            assertAdminSecurity(resolveOperation)
+            assertEquals("#/components/parameters/CsrfToken", (resolveOperation["parameters"] as List<*>)[1].node()["\$ref"])
+            assertEquals(
+                "#/components/schemas/GetAdminSessionSuccessEnvelope",
+                responses.node("GetAdminSessionSuccess", "content", "application/json", "schema")["\$ref"],
+            )
+
             assertEquals(
                 listOf(
                     "id",
@@ -173,3 +185,17 @@ class ApiResponseContractTest
 @Suppress("UNCHECKED_CAST")
 private fun Map<String, Any?>.node(vararg path: String): Map<String, Any?> =
     path.fold(this) { node, key -> node.getValue(key) as Map<String, Any?> }
+
+@Suppress("UNCHECKED_CAST")
+private fun Any?.node(): Map<String, Any?> = this as Map<String, Any?>
+
+private fun assertAdminSecurity(operation: Map<String, Any?>) {
+    assertEquals(
+        listOf(mapOf("adminSession" to emptyList<Any>()), mapOf("adminOidc" to listOf("ADMIN"))),
+        operation["security"],
+    )
+    val responses = operation.node("responses")
+    listOf("401", "403").forEach { status ->
+        assertEquals("#/components/responses/ApiError", responses.node(status)["\$ref"])
+    }
+}

@@ -545,6 +545,14 @@ export interface components {
             code: "INVALID_REQUEST" | "UNAUTHORIZED" | "FORBIDDEN" | "NOT_FOUND" | "CONFLICT" | "INTERNAL_ERROR";
             message: string;
         };
+        GetAdminSessionSuccessEnvelope: {
+            /** @constant */
+            success: true;
+            /** Format: date-time */
+            timestamp: string;
+            data: components["schemas"]["AdminSession"];
+            error: null;
+        };
         ListCandidateIngestionRunsSuccessEnvelope: {
             /** @constant */
             success: true;
@@ -984,6 +992,15 @@ export interface components {
                 "application/json": components["schemas"]["ApiResponse"];
             };
         };
+        /** @description Administrator session response envelope. */
+        GetAdminSessionSuccess: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["GetAdminSessionSuccessEnvelope"];
+            };
+        };
         /** @description Candidate ingestion run page response envelope. */
         ListCandidateIngestionRunsSuccess: {
             headers: {
@@ -1071,6 +1088,7 @@ export interface components {
         RecommendationSessionId: string;
         /** @description Repeat the parameter to select multiple categories. Stores matching at least one selected category are returned. */
         Category: components["schemas"]["CategorySlug"][];
+        CsrfToken: string;
         Query: string;
         /** @description Set to false when the user chooses to view results for the original query. */
         ApplyCorrection: boolean;
@@ -1263,7 +1281,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["ApiResponse"];
+            200: components["responses"]["GetAdminSessionSuccess"];
         };
     };
     loginAdminSession: {
@@ -1279,7 +1297,7 @@ export interface operations {
             };
         };
         responses: {
-            200: components["responses"]["ApiResponse"];
+            200: components["responses"]["GetAdminSessionSuccess"];
             401: components["responses"]["ApiError"];
         };
     };
@@ -1287,7 +1305,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                "X-XSRF-TOKEN": string;
+                "X-XSRF-TOKEN": components["parameters"]["CsrfToken"];
             };
             path?: never;
             cookie?: never;
@@ -1663,7 +1681,9 @@ export interface operations {
     resolveCandidateIngestionItem: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                "X-XSRF-TOKEN": components["parameters"]["CsrfToken"];
+            };
             path: {
                 itemId: string;
             };

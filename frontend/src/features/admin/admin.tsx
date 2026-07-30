@@ -10,7 +10,7 @@ type Feedback = { id: string; storeName?: string | null; kind: string; content: 
 type CategoryHealth = { category: string; publishedStoreCount: number; storesByLifecycle: Record<string, number>; openReviewFlagCount: number };
 type CategoryReviewFlag = components["schemas"]["CategoryReviewFlag"];
 type Dashboard = { stores: Record<string, number>; feedback: Record<string, number>; activeCorrectionRules: number; categoryHealth: CategoryHealth[] };
-type Session = { authenticated: boolean; email?: string; csrfToken: string };
+type Session = components["schemas"]["AdminSession"];
 
 export default function Admin({ apiBaseUrl }: { apiBaseUrl: string }) {
   const api = `${apiBaseUrl.replace(/\/$/, "")}/api/v1/admin`;
@@ -30,7 +30,6 @@ export default function Admin({ apiBaseUrl }: { apiBaseUrl: string }) {
 
   async function request(path: string, init?: RequestInit) {
     const requestHeaders = new Headers(init?.headers);
-    new Headers(init?.headers).forEach((value, key) => requestHeaders.set(key, value));
     if (init?.body) requestHeaders.set("Content-Type", "application/json");
     if (csrfToken && !["GET", "HEAD"].includes(init?.method ?? "GET")) requestHeaders.set("X-XSRF-TOKEN", csrfToken);
     const response = await fetch(`${api}${path}`, { ...init, credentials: "include", headers: requestHeaders });

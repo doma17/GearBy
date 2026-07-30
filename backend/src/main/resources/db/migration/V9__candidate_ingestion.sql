@@ -25,7 +25,7 @@ CREATE INDEX candidate_ingestion_provider_policy_active_idx
 
 CREATE TABLE candidate_ingestion_runs (
     id UUID PRIMARY KEY,
-    provider_policy_id UUID REFERENCES candidate_ingestion_provider_policy(id),
+    provider_policy_id UUID NOT NULL REFERENCES candidate_ingestion_provider_policy(id),
     provider_key VARCHAR(80) NOT NULL,
     idempotency_key VARCHAR(200) NOT NULL,
     requested_by VARCHAR(200) NOT NULL,
