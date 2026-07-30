@@ -13,16 +13,20 @@ class AdminSessionAuthenticatorTest {
     fun `locks the single administrator after five failed attempts`() {
         val encoder = BCryptPasswordEncoder()
         val acceptedValue = UUID.randomUUID().toString()
-        val inacceptedValue = UUID.randomUUID().toString()
+        val rejectedValue = UUID.randomUUID().toString()
         val authenticator =
             AdminSessionAuthenticator(
                 AdminSessionProperties("admin@gearby.cloud", requireNotNull(encoder.encode(acceptedValue))),
                 encoder,
             )
 
-        repeat(5) { assertNull(authenticator.authenticate("admin@gearby.cloud", inacceptedValue, "127.0.0.1")) }
+        repeat(5) { assertNull(authenticator.authenticate("admin@gearby.cloud", rejectedValue, "127.0.0.1")) }
 
         assertNull(authenticator.authenticate("admin@gearby.cloud", acceptedValue, "127.0.0.1"))
+        kotlin.test.assertNotNull(authenticator.authenticate("admin@gearby.cloud", acceptedValue, "127.0.0.2"))
+        repeat(4) { assertNull(authenticator.authenticate("admin@gearby.cloud", rejectedValue, "127.0.0.2")) }
+        kotlin.test.assertNotNull(authenticator.authenticate("admin@gearby.cloud", acceptedValue, "127.0.0.2"))
+        repeat(4) { assertNull(authenticator.authenticate("admin@gearby.cloud", rejectedValue, "127.0.0.2")) }
         kotlin.test.assertNotNull(authenticator.authenticate("admin@gearby.cloud", acceptedValue, "127.0.0.2"))
     }
 }

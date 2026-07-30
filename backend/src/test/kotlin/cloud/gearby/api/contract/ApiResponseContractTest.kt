@@ -173,6 +173,10 @@ class ApiResponseContractTest
                     paths.node(path, method, "responses", "200")["\$ref"],
                 )
             }
+            val logoutOperation = paths.node("/admin/auth/logout", "post")
+            assertEquals(listOf(mapOf("adminSession" to emptyList<Any>())), logoutOperation["security"])
+            assertEquals("#/components/parameters/CsrfToken", (logoutOperation["parameters"] as List<*>)[0].node()["\$ref"])
+            assertEquals("#/components/responses/ApiError", logoutOperation.node("responses", "403")["\$ref"])
 
             assertEquals(
                 listOf(

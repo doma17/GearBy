@@ -17,6 +17,7 @@ import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.support.TransactionTemplate
 import java.security.MessageDigest
+import java.sql.SQLException
 import java.util.UUID
 
 @Service
@@ -116,10 +117,18 @@ class CandidateIngestionService(
                 )
             return StartedRun(run, created = true)
         } catch (error: DataIntegrityViolationException) {
+            if (!error.isIdempotencyConflict()) throw error
             val existing = reader.runByKey(providerKey, idempotencyKey) ?: throw error
             return StartedRun(existing, created = false)
         }
     }
+
+    private fun DataIntegrityViolationException.isIdempotencyConflict(): Boolean =
+        generateSequence<Throwable>(this) { it.cause }.any { cause ->
+            cause is SQLException &&
+                cause.sqlState == "23505" &&
+                cause.message.orEmpty().contains(IDEMPOTENCY_CONSTRAINT)
+        }
 
     private data class StartedRun(
         val run: CandidateIngestionRunEntity,
@@ -157,6 +166,10 @@ class CandidateIngestionService(
             ProviderFailureCategory.CONFIGURATION -> "provider configuration failed"
             ProviderFailureCategory.PAGE_LIMIT -> "provider page limit reached"
         }
+
+    private companion object {
+        const val IDEMPOTENCY_CONSTRAINT = "candidate_ingestion_runs_provider_key_idempotency_key_key"
+    }
 
     private fun logResult(
         event: String,

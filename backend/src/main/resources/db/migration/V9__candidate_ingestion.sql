@@ -46,7 +46,7 @@ CREATE TABLE candidate_ingestion_runs (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_by VARCHAR(200) NOT NULL DEFAULT 'system',
     edited_by VARCHAR(200) NOT NULL DEFAULT 'system',
-    UNIQUE (provider_key, idempotency_key)
+    CONSTRAINT candidate_ingestion_runs_provider_key_idempotency_key_key UNIQUE (provider_key, idempotency_key)
 );
 
 CREATE INDEX candidate_ingestion_runs_status_idx
