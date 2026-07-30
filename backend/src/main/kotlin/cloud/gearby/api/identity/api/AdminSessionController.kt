@@ -46,7 +46,7 @@ class AdminSessionController(
         csrfToken: CsrfToken,
     ): ApiResponse<AdminSessionResponse> {
         val authentication =
-            authenticator.authenticate(request.email, request.password)
+            authenticator.authenticate(request.email, request.password, servletRequest.remoteAddr)
                 ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "invalid email or password")
         servletRequest.getSession()
         servletRequest.changeSessionId()

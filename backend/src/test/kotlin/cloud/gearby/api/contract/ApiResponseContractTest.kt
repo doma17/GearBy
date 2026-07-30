@@ -163,6 +163,16 @@ class ApiResponseContractTest
                 "#/components/schemas/GetAdminSessionSuccessEnvelope",
                 responses.node("GetAdminSessionSuccess", "content", "application/json", "schema")["\$ref"],
             )
+            listOf(
+                "/admin/auth/session" to "get",
+                "/admin/auth/login" to "post",
+                "/admin/auth/logout" to "post",
+            ).forEach { (path, method) ->
+                assertEquals(
+                    "#/components/responses/GetAdminSessionSuccess",
+                    paths.node(path, method, "responses", "200")["\$ref"],
+                )
+            }
 
             assertEquals(
                 listOf(

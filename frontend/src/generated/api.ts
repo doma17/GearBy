@@ -1312,7 +1312,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["ApiResponse"];
+            200: components["responses"]["GetAdminSessionSuccess"];
             403: components["responses"]["ApiError"];
         };
     };

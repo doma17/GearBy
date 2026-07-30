@@ -147,7 +147,7 @@ paths:
       parameters:
         - { $ref: '#/components/parameters/CsrfToken' }
       responses:
-        '200': { $ref: '#/components/responses/ApiResponse' }
+        '200': { $ref: '#/components/responses/GetAdminSessionSuccess' }
         '403': { $ref: '#/components/responses/ApiError' }
   /admin/stores:
     get:

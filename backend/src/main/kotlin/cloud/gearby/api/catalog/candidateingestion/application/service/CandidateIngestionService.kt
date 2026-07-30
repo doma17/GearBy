@@ -11,6 +11,7 @@ import cloud.gearby.api.catalog.candidateingestion.application.result.CandidateI
 import cloud.gearby.api.catalog.candidateingestion.domain.IngestionRunStatus
 import cloud.gearby.api.catalog.candidateingestion.infrastructure.implement.CandidateIngestionManager
 import cloud.gearby.api.catalog.candidateingestion.infrastructure.implement.CandidateIngestionReader
+import cloud.gearby.api.catalog.candidateingestion.infrastructure.persistence.entity.CandidateIngestionRunEntity
 import org.slf4j.LoggerFactory
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
@@ -28,7 +29,9 @@ class CandidateIngestionService(
 
     fun ingest(command: CandidateIngestionCommand): CandidateIngestionResult {
         reader.runByKey(command.providerKey, command.idempotencyKey)?.let { return it.toResult(idempotent = true) }
-        val run = startRun(command.providerKey, command.idempotencyKey, command.requestedBy)
+        val started = startRun(command.providerKey, command.idempotencyKey, command.requestedBy)
+        if (!started.created) return started.run.toResult(idempotent = true)
+        val run = started.run
         command.candidates.forEach { candidate ->
             transactions.execute { manager.recordCandidate(run.id, candidate.normalized(), command.requestedBy) }
         }
@@ -53,7 +56,9 @@ class CandidateIngestionService(
             }?.let { return it }
         validateMutableConfig(command)
 
-        val run = startRun(command.providerKey, command.idempotencyKey, command.requestedBy, command.allowlistVersion)
+        val started = startRun(command.providerKey, command.idempotencyKey, command.requestedBy, command.allowlistVersion)
+        if (!started.created) return started.run.toResult(idempotent = true)
+        val run = started.run
         log.info("candidate_ingestion_start runId={} status={}", run.id, run.status)
         try {
             command.industryCodes.forEach { code ->
@@ -100,15 +105,26 @@ class CandidateIngestionService(
         idempotencyKey: String,
         requestedBy: String,
         allowlistVersion: String? = null,
-    ) = try {
-        requireNotNull(
-            transactions.execute {
-                manager.startRun(providerKey, idempotencyKey, requestedBy, allowlistVersion)
-            },
-        )
-    } catch (error: DataIntegrityViolationException) {
-        requireNotNull(reader.runByKey(providerKey, idempotencyKey)) { "idempotent run was not found" }
+    ): StartedRun {
+        reader.runByKey(providerKey, idempotencyKey)?.let { return StartedRun(it, created = false) }
+        try {
+            val run =
+                requireNotNull(
+                    transactions.execute {
+                        manager.startRun(providerKey, idempotencyKey, requestedBy, allowlistVersion)
+                    },
+                )
+            return StartedRun(run, created = true)
+        } catch (error: DataIntegrityViolationException) {
+            val existing = reader.runByKey(providerKey, idempotencyKey) ?: throw error
+            return StartedRun(existing, created = false)
+        }
     }
+
+    private data class StartedRun(
+        val run: CandidateIngestionRunEntity,
+        val created: Boolean,
+    )
 
     private fun validateKey(command: ProviderIngestionCommand) {
         require(command.providerKey == "semas") { "provider must be semas" }

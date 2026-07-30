@@ -21,16 +21,16 @@ class AdminSessionAuthenticator(
     fun authenticate(
         email: String,
         password: String,
+        source: String,
     ): Authentication? {
         val now = Instant.now()
-        val key = properties.email.trim().lowercase()
-        if (!properties.configured() || failedAttempts[key]?.lockedUntil?.isAfter(now) == true) return null
+        if (!properties.configured() || failedAttempts[source]?.lockedUntil?.isAfter(now) == true) return null
         if (email.trim().equals(properties.email.trim(), ignoreCase = true) && passwordEncoder.matches(password, properties.passwordHash)) {
-            failedAttempts.remove(key)
+            failedAttempts.remove(source)
             return UsernamePasswordAuthenticationToken.authenticated(properties.email.trim(), null, listOf(SimpleGrantedAuthority("ADMIN")))
         }
         // ponytail: local throttling resets on restart; move this control to the IdP or gateway before multi-node administration.
-        failedAttempts.compute(key) { _, previous ->
+        failedAttempts.compute(source) { _, previous ->
             val failures =
                 if (previous?.lockedUntil != null && !previous.lockedUntil.isAfter(now)) 0 else previous?.failures ?: 0
             val nextFailures = failures + 1

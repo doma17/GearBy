@@ -367,7 +367,9 @@ describe("Discovery", () => {
     expect(await screen.findByRole("dialog", { name: "매장 정보 신고" })).toBeTruthy();
     expect(screen.getByRole("textbox", { name: "문제 내용" })).toBeTruthy();
 
+    const trigger = screen.getByRole("button", { name: "매장 정보 신고" });
     await user.click(screen.getByRole("button", { name: "취소" }));
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "매장 정보 신고" })).toBeNull());
+    expect(document.activeElement).toBe(trigger);
   });
 });
