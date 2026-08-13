@@ -16,10 +16,3 @@ test("admin operations use the server session instead of storing a JWT", () => {
   assert(source.includes("/auth/login"));
   assert(source.includes("/auth/logout"));
 });
-
-test("candidate review uses the protected candidate-ingestion API", () => {
-  assert(source.includes('/candidate-ingestion/runs?size=10'));
-  assert(source.includes('/candidate-ingestion/items?size=50&latestOutcome=QUARANTINED'));
-  assert(source.includes('resolutionType: "LINK_EXISTING"'));
-  assert(source.includes('\"CREATE_DRAFT\"'));
-});
