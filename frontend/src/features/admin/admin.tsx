@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import type { components } from "../../generated/api";
 import { readApiResponse } from "../../shared/api/api-response";
 
@@ -11,6 +11,12 @@ type CategoryHealth = { category: string; publishedStoreCount: number; storesByL
 type CategoryReviewFlag = components["schemas"]["CategoryReviewFlag"];
 type Dashboard = { stores: Record<string, number>; feedback: Record<string, number>; activeCorrectionRules: number; categoryHealth: CategoryHealth[] };
 type Session = components["schemas"]["AdminSession"];
+type CandidateRun = components["schemas"]["CandidateRun"];
+type CandidateItem = components["schemas"]["CandidateItem"];
+type CandidateRunPage = components["schemas"]["CandidateRunPage"];
+type CandidateItemPage = components["schemas"]["CandidateItemPage"];
+type Category = components["schemas"]["CategorySlug"];
+type CandidateResolutionInput = components["schemas"]["CandidateResolutionInput"];
 
 export default function Admin({ apiBaseUrl }: { apiBaseUrl: string }) {
   const api = `${apiBaseUrl.replace(/\/$/, "")}/api/v1/admin`;
@@ -25,8 +31,13 @@ export default function Admin({ apiBaseUrl }: { apiBaseUrl: string }) {
   const [dashboard, setDashboard] = useState<Dashboard>();
   const [categoryHealth, setCategoryHealth] = useState<CategoryHealth[]>([]);
   const [categoryFlags, setCategoryFlags] = useState<CategoryReviewFlag[]>([]);
+  const [candidateRuns, setCandidateRuns] = useState<CandidateRun[]>([]);
+  const [candidateItems, setCandidateItems] = useState<CandidateItem[]>([]);
+  const [candidateError, setCandidateError] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const candidateControls = useRef<Record<string, HTMLSelectElement | null>>({});
+  const emptyCandidates = useRef<HTMLParagraphElement>(null);
 
   async function request(path: string, init?: RequestInit) {
     const requestHeaders = new Headers(init?.headers);
@@ -35,6 +46,22 @@ export default function Admin({ apiBaseUrl }: { apiBaseUrl: string }) {
     const response = await fetch(`${api}${path}`, { ...init, credentials: "include", headers: requestHeaders });
     return readApiResponse(response);
   }
+
+  const loadCandidates = useCallback(async () => {
+    try {
+      const get = async (path: string) => readApiResponse(await fetch(`${api}${path}`, { credentials: "include" }));
+      const [nextCandidateRuns, nextCandidateItems] = await Promise.all([
+        get("/candidate-ingestion/runs?size=10"), get("/candidate-ingestion/items?size=50&latestOutcome=QUARANTINED"),
+      ]);
+      setCandidateRuns((nextCandidateRuns as CandidateRunPage).items);
+      setCandidateItems((nextCandidateItems as CandidateItemPage).items);
+      setCandidateError("");
+    } catch (reason) {
+      setCandidateRuns([]);
+      setCandidateItems([]);
+      setCandidateError(reason instanceof Error ? reason.message : "후보 수집 정보를 불러오지 못했습니다.");
+    }
+  }, [api]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -55,7 +82,8 @@ export default function Admin({ apiBaseUrl }: { apiBaseUrl: string }) {
     } finally {
       setLoading(false);
     }
-  }, [api]);
+    await loadCandidates();
+  }, [api, loadCandidates]);
 
   const restoreSession = useCallback(async () => {
     try {
@@ -104,7 +132,7 @@ export default function Admin({ apiBaseUrl }: { apiBaseUrl: string }) {
       const session = await readApiResponse<Session>(response);
       setAuthenticated(session.authenticated);
       setCsrfToken(session.csrfToken);
-      setStores([]); setRules([]); setFeedback([]); setDashboard(undefined); setCategoryHealth([]); setCategoryFlags([]);
+      setStores([]); setRules([]); setFeedback([]); setDashboard(undefined); setCategoryHealth([]); setCategoryFlags([]); setCandidateRuns([]); setCandidateItems([]);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "로그아웃하지 못했습니다.");
     }
@@ -161,6 +189,27 @@ export default function Admin({ apiBaseUrl }: { apiBaseUrl: string }) {
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Feedback update failed."); }
   }
 
+  async function resolveCandidate(event: FormEvent<HTMLFormElement>, item: CandidateItem, resolutionType: "LINK_EXISTING" | "CREATE_DRAFT") {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const payload: CandidateResolutionInput = resolutionType === "LINK_EXISTING"
+      ? { resolutionType, storeId: String(form.get("storeId")) }
+      : {
+          resolutionType,
+          name: String(form.get("name")),
+          address: String(form.get("address")),
+          coordinates: { latitude: Number(form.get("latitude")), longitude: Number(form.get("longitude")) },
+          categories: [form.get("category") as Category],
+          phone: String(form.get("phone")) || undefined,
+        };
+    try {
+      await request(`/candidate-ingestion/items/${item.id}/resolve`, { method: "POST", body: JSON.stringify(payload) });
+      const nextCandidateId = candidateItems[candidateItems.findIndex((candidate) => candidate.id === item.id) + 1]?.id;
+      await load();
+      window.requestAnimationFrame(() => (nextCandidateId ? candidateControls.current[nextCandidateId] : emptyCandidates.current)?.focus());
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "후보를 해결하지 못했습니다."); }
+  }
+
   return <main className="admin">
     <header><p className="eyebrow">GEARBY ADMIN</p><h1>운영 관리</h1><p>매장, 카테고리, 검색 보정, 사용자 의견을 관리합니다.</p>{authenticated && <button type="button" onClick={() => void logout()}>로그아웃</button>}</header>
     {!sessionReady && <p role="status">관리자 세션을 확인하는 중입니다.</p>}
@@ -168,6 +217,7 @@ export default function Admin({ apiBaseUrl }: { apiBaseUrl: string }) {
     {error && <p className="error" role="alert">{error}</p>}
     {loading && <p role="status">운영 정보를 불러오는 중입니다.</p>}
     {authenticated && <>
+    <section className="admin-section"><h2>후보 수집 검수</h2><p className="admin-help">검수 대기 후보만 표시합니다. 연결은 기존 매장을 바꾸지 않으며, 초안 생성은 공개하지 않습니다.</p>{candidateError && <p className="error" role="alert">{candidateError}</p>}<div className="admin-cards">{candidateRuns.map((run) => <p key={run.id}><strong>{run.seenCount}</strong>{run.provider} · {run.status}<small>격리 {run.quarantinedCount} · 실패 {run.failedCount}</small></p>)}</div><div className="admin-list">{candidateItems.map((item) => <article key={item.id}><strong>{item.normalizedName}</strong><span>{item.roadAddress ?? "주소 없음"} · {item.provider} · {item.latestMatchStatus}</span><a href={item.sourceUrl} target="_blank" rel="noreferrer">출처 열기</a><form className="admin-rule" onSubmit={(event) => void resolveCandidate(event, item, "LINK_EXISTING")}><label>기존 매장<select ref={(control) => { candidateControls.current[item.id] = control; }} aria-label={`${item.normalizedName} 기존 매장`} name="storeId" required defaultValue=""><option value="" disabled>연결할 매장 선택</option>{stores.map((store) => <option key={store.id} value={store.id}>{store.name} · {store.status}</option>)}</select></label><button>기존 매장 연결</button></form><details><summary>검수용 초안 만들기</summary><form className="admin-rule candidate-draft" onSubmit={(event) => void resolveCandidate(event, item, "CREATE_DRAFT")}><label>매장명<input name="name" required defaultValue={item.normalizedName} /></label><label>주소<input name="address" required defaultValue={item.roadAddress ?? ""} /></label><label>위도<input name="latitude" type="number" step="any" required defaultValue={item.roundedLatitude ?? ""} /></label><label>경도<input name="longitude" type="number" step="any" required defaultValue={item.roundedLongitude ?? ""} /></label><label>카테고리<select name="category" defaultValue="HIKING"><option>HIKING</option><option>BACKPACKING</option><option>CAMPING</option><option>CLIMBING</option></select></label><label>전화<input name="phone" defaultValue={item.phone ?? ""} /></label><button>초안 생성</button></form></details></article>)}{!candidateItems.length && <p ref={emptyCandidates} role="status" aria-label="검수 대기 후보 상태" tabIndex={-1}>검수 대기 후보가 없습니다.</p>}</div></section>
     {dashboard && <section className="admin-section"><h2>Dashboard</h2><div className="admin-cards">{Object.entries(dashboard.stores).map(([status, count]) => <p key={status}><strong>{count}</strong>{status.replaceAll("_", " ")}</p>)}<p><strong>{dashboard.activeCorrectionRules}</strong>active rules</p>{Object.entries(dashboard.feedback).map(([status, count]) => <p key={status}><strong>{count}</strong>feedback {status.replaceAll("_", " ").toLowerCase()}</p>)}</div><h3>Category health</h3><ul>{categoryHealth.map((item) => <li key={item.category} className={item.openReviewFlagCount ? "health-flag" : ""}>{item.category}: {item.publishedStoreCount} published · {item.openReviewFlagCount} open flags</li>)}</ul></section>}
     <section className="admin-section"><h2>Store review</h2><div className="admin-list">{stores.map((store) => <article key={store.id}><strong>{store.name}</strong><span>{store.address} · {store.categories.join(", ")} · {store.status}</span><div>{store.status === "DRAFT" || store.status === "REJECTED" ? <button onClick={() => void transitionStore(store, "review")}>Send to review</button> : null}{store.status === "IN_REVIEW" ? <><button onClick={() => void transitionStore(store, "publish")}>Publish</button><button onClick={() => void transitionStore(store, "reject")}>Reject</button></> : null}</div></article>)}{!stores.length && <p>No stores loaded.</p>}</div></section>
     <section className="admin-section"><h2>Correction rules</h2><form className="admin-rule" onSubmit={addRule}><label>Source<input name="source" required maxLength={120} /></label><label>Target type<select name="targetType" defaultValue="CATEGORY"><option>CATEGORY</option><option>STORE</option></select></label><label>Target<input name="target" required maxLength={200} /></label><button>Add rule</button></form><ul>{rules.map((rule) => <li key={rule.id}>{rule.source} → {rule.targetType}: {rule.target} {!rule.active && "(inactive)"} <button onClick={() => void updateRule(rule)}>{rule.active ? "Deactivate" : "Activate"}</button> <button onClick={() => void deleteRule(rule)}>Delete</button></li>)}</ul></section>
