@@ -100,7 +100,7 @@ class CandidateIngestionAdminApiIntegrationTest
         }
 
         @Test
-        fun `create draft resolution stays private until existing lifecycle publishes it`() {
+        fun `candidate resolution reaches public discovery only after an administrator publishes its draft`() {
             val (_, _, itemId) = seedAmbiguousItem("draft-item")
 
             mockMvc
@@ -132,9 +132,22 @@ class CandidateIngestionAdminApiIntegrationTest
                 status { isOk() }
                 jsonPath("$.data.items.length()") { value(0) }
             }
-            catalog.transition(draft.id, StoreStatus.IN_REVIEW, "test-admin")
-            catalog.transition(draft.id, StoreStatus.PUBLISHED, "test-admin")
-            mockMvc.get("/api/v1/stores/${draft.id}").andExpect { status { isOk() } }
+            mockMvc.post("/api/v1/admin/stores/${draft.id}/review") { with(admin) }.andExpect {
+                status { isOk() }
+                jsonPath("$.data.status") { value("IN_REVIEW") }
+            }
+            mockMvc.post("/api/v1/admin/stores/${draft.id}/publish") { with(admin) }.andExpect {
+                status { isOk() }
+                jsonPath("$.data.status") { value("PUBLISHED") }
+            }
+            mockMvc.get("/api/v1/stores/${draft.id}").andExpect {
+                status { isOk() }
+                jsonPath("$.data.name") { value("Resolved Draft Store") }
+            }
+            mockMvc.get("/api/v1/stores") { param("q", "Resolved Draft Store") }.andExpect {
+                status { isOk() }
+                jsonPath("$.data.items[0].id") { value(draft.id.toString()) }
+            }
         }
 
         @Test
