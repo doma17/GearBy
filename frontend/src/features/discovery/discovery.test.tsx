@@ -372,4 +372,48 @@ describe("Discovery", () => {
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "매장 정보 신고" })).toBeNull());
     expect(document.activeElement).toBe(trigger);
   });
+
+  it("completes the public discovery path from category filters to a store report", async () => {
+    const feedbackRequests: unknown[] = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/categories")) return success([
+        { slug: "HIKING", displayName: "등산" },
+        { slug: "CAMPING", displayName: "캠핑" },
+      ]);
+      if (url.endsWith(`/stores/${store.id}`)) return success(store);
+      if (url.endsWith("/feedback")) {
+        feedbackRequests.push(JSON.parse(String(init?.body)));
+        return success({ id: "feedback-1", status: "ACCEPTED" });
+      }
+      if (url.includes("/stores?")) return success({ items: [store] });
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    render(<Discovery apiBaseUrl="http://api.example" naverMapClientId="" />);
+
+    await user.click(screen.getAllByRole("button", { name: "필터" })[0]);
+    await user.click(await screen.findByRole("button", { name: "등산" }));
+    await user.click(screen.getByRole("button", { name: "캠핑" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      "http://api.example/api/v1/stores?sort=name&limit=100&category=HIKING&category=CAMPING",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    ));
+
+    await user.click(screen.getByRole("button", { name: "1개 매장 보기" }));
+    await user.click(await screen.findByRole("button", { name: /Trail House/ }));
+    expect(await screen.findByRole("heading", { name: "Trail House", level: 3 })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Naver Map Link" }).getAttribute("href")).toContain("Trail%20House%20Seoul");
+
+    await user.click(screen.getByRole("button", { name: "매장 정보 신고" }));
+    await user.type(await screen.findByRole("textbox", { name: "문제 내용" }), "운영시간 수정 필요");
+    await user.click(screen.getByRole("button", { name: "전송" }));
+
+    await waitFor(() => expect(feedbackRequests).toEqual([{
+      kind: "CORRECTION", content: "운영시간 수정 필요", categoryRelated: false, storeId: store.id, contactConsent: false,
+    }]));
+    expect((await screen.findByText("의견을 검토 요청으로 보냈습니다.")).textContent).toContain("의견을 검토 요청으로 보냈습니다.");
+  });
 });

@@ -75,3 +75,7 @@ Admin token and operations data remain local to the admin screen; they do not ne
 | Existing behavior | Navigation URL helpers and admin form constraints | Naver directions URL encoding and required category-flag fields. |
 
 `pnpm --dir frontend test` runs all frontend tests. Root `ci:frontend` includes that command before lint, typecheck, and production build.
+
+### P0 public journey evidence
+
+`discovery.test.tsx` verifies one mocked-HTTP user path: OR category filters → store detail → NAVER map link → anonymous correction feedback. It is UI integration evidence, not a live NAVER or deployed-browser test.
